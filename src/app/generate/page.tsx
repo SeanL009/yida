@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PhotoUpload from "@/components/PhotoUpload";
 import OutfitCard from "@/components/OutfitCard";
 import FeedbackForm from "@/components/FeedbackForm";
 import { STYLE_DNA, OCCASIONS, COLOR_SCHEMES } from "@/lib/types";
 import type { AnalysisResult, OutfitSuggestion } from "@/lib/types";
+import {
+  canGenerate,
+  recordGeneration,
+  getRemainingUses,
+  DAILY_LIMIT,
+} from "@/lib/dailyLimit";
 
 type Step = "upload" | "choose" | "generating" | "result";
 
@@ -19,6 +25,13 @@ export default function GeneratePage() {
   const [outfits, setOutfits] = useState<OutfitSuggestion[]>([]);
   const [error, setError] = useState<string>("");
   const [usedCount, setUsedCount] = useState(0);
+  const [limitReached, setLimitReached] = useState(false);
+
+  // 页面加载时从 localStorage 同步今日使用次数
+  useEffect(() => {
+    setUsedCount(DAILY_LIMIT - getRemainingUses());
+    setLimitReached(!canGenerate());
+  }, []);
 
   const handleImageReady = async (dataUrl: string) => {
     setImageDataUrl(dataUrl);
@@ -48,6 +61,13 @@ export default function GeneratePage() {
 
   const handleGenerate = async () => {
     if (!selectedStyle || !selectedOccasion) return;
+
+    // 检查每日次数
+    const check = recordGeneration();
+    if (!check.allowed) {
+      setLimitReached(true);
+      return;
+    }
 
     setStep("generating");
     setError("");
@@ -87,6 +107,7 @@ export default function GeneratePage() {
     setSelectedColorScheme("随机搭配");
     setOutfits([]);
     setError("");
+    setLimitReached(!canGenerate());
   };
 
   return (
@@ -263,15 +284,33 @@ export default function GeneratePage() {
             </div>
           </div>
 
-          <button
-            onClick={handleGenerate}
-            disabled={!selectedStyle || !selectedOccasion}
-            className="w-full py-3.5 bg-gradient-to-r from-primary to-primary-light text-white
-                       rounded-xl font-semibold text-base disabled:opacity-40
-                       hover:opacity-90 transition-all active:scale-[0.98]"
-          >
-            ✨ AI生成穿搭方案
-          </button>
+          {limitReached ? (
+            <div className="bg-card-bg rounded-2xl border border-border p-5 text-center space-y-3">
+              <div className="text-3xl">😅</div>
+              <p className="text-text-primary font-semibold">今日免费次数已用完</p>
+              <p className="text-text-muted text-sm">
+                每天免费 {DAILY_LIMIT} 次，明天再来吧
+              </p>
+              <p className="text-[10px] text-text-muted/60">
+                Pro 会员即将上线，敬请期待
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <button
+                onClick={handleGenerate}
+                disabled={!selectedStyle || !selectedOccasion}
+                className="w-full py-3.5 bg-gradient-to-r from-primary to-primary-light text-white
+                           rounded-xl font-semibold text-base disabled:opacity-40
+                           hover:opacity-90 transition-all active:scale-[0.98]"
+              >
+                ✨ AI生成穿搭方案
+              </button>
+              <p className="text-center text-[11px] text-text-muted">
+                今日剩余 {DAILY_LIMIT - usedCount} 次免费生成
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -298,7 +337,7 @@ export default function GeneratePage() {
               ✨ 你的穿搭方案
             </h2>
             <span className="text-xs text-text-muted bg-secondary px-2.5 py-1 rounded-full">
-              今日已用 {usedCount} 次
+              今日 {DAILY_LIMIT - usedCount}/{DAILY_LIMIT} 次剩余
             </span>
           </div>
 
