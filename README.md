@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 衣搭 · AI穿搭助手
 
-## Getting Started
+上传照片，AI 为你智能搭配穿搭方案。适合通勤、约会、旅行等各种场景。
 
-First, run the development server:
+## 技术栈
+
+- **框架**: Next.js 16 (App Router)
+- **样式**: Tailwind CSS v4
+- **AI**: OpenAI GPT-4o-mini Vision API
+- **部署**: Vercel
+
+## 本地开发
+
+### 前置条件
+
+1. Node.js 18+
+2. OpenAI API Key（[点此获取](https://platform.openai.com/api-keys)）
+
+### 启动步骤
 
 ```bash
+# 1. 安装依赖
+npm install
+
+# 2. 复制环境变量文件
+cp .env.local.example .env.local
+
+# 3. 编辑 .env.local，填入你的 OpenAI API Key
+#    OPENAI_API_KEY=sk-your-key-here
+
+# 4. 启动开发服务器
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 http://localhost:3000 查看效果。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 构建生产版本
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## 部署到 Vercel
 
-To learn more about Next.js, take a look at the following resources:
+### 一键部署
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/yida)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 手动部署
 
-## Deploy on Vercel
+1. 把代码推送到 GitHub 仓库
+2. 登录 [Vercel](https://vercel.com)（推荐用 GitHub 登录）
+3. 点击 "Add New" → "Project"
+4. 导入你的 GitHub 仓库
+5. 在 Environment Variables 中添加 `OPENAI_API_KEY`
+6. 点击 Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+部署完成后，Vercel 会自动给你的项目分配域名。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 项目结构
+
+```
+src/
+├── app/
+│   ├── page.tsx          # 首页
+│   ├── layout.tsx        # 布局
+│   ├── globals.css       # 全局样式
+│   ├── generate/
+│   │   └── page.tsx      # 穿搭生成页
+│   └── api/
+│       ├── analyze/route.ts
+│       └── generate/route.ts
+├── components/
+│   ├── PhotoUpload.tsx
+│   └── OutfitCard.tsx
+└── lib/
+    ├── types.ts
+    └── openai.ts
+```
+
+## 变现计划
+
+| 类型 | 价格 | 说明 |
+|------|------|------|
+| 免费 | ¥0 | 每日 3 次生成 |
+| 次卡 | ¥9.9/10次 | 按需购买 |
+| 月卡 | ¥19.9/月 | 无限次 |

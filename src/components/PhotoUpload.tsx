@@ -1,0 +1,209 @@
+"use client";
+
+import { useState, useRef } from "react";
+
+interface PhotoUploadProps {
+  onImageReady: (dataUrl: string, file: File) => void;
+  disabled?: boolean;
+}
+
+/** 女性身形参考图 SVG（修身衣物，带简单五官） */
+function PoseGuide() {
+  return (
+    <svg viewBox="0 0 100 200" className="w-20 h-40" fill="none">
+      {/* 头 - 简单五官 */}
+      <circle cx="50" cy="18" r="12" className="stroke-primary-dark" strokeWidth="1.5" fill="#fdf0f3" />
+      {/* 眼睛 */}
+      <circle cx="46" cy="17" r="1.2" className="fill-text-primary" />
+      <circle cx="54" cy="17" r="1.2" className="fill-text-primary" />
+      {/* 眉毛 */}
+      <path d="M44 14.5 Q46 13.5 48 14.5" className="stroke-text-primary" strokeWidth="0.8" strokeLinecap="round" />
+      <path d="M52 14.5 Q54 13.5 56 14.5" className="stroke-text-primary" strokeWidth="0.8" strokeLinecap="round" />
+      {/* 鼻子 */}
+      <path d="M50 19 L50 21" className="stroke-text-muted" strokeWidth="0.8" strokeLinecap="round" />
+      {/* 嘴巴 */}
+      <path d="M47 23 Q50 24.5 53 23" className="stroke-text-primary" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+      {/* 脖子 */}
+      <line x1="50" y1="30" x2="50" y2="36" className="stroke-primary-dark" strokeWidth="1.5" />
+      {/* 上身 - 修身衣物 */}
+      <path d="M34 36 Q34 32 38 36 L40 58 L44 74 L56 74 L60 58 L62 36 Q66 32 66 36 L62 40 Q62 56 58 68 Q54 78 50 78 Q46 78 42 68 Q38 56 38 40 Z"
+            className="fill-secondary stroke-primary-dark" strokeWidth="1.2" />
+      {/* 手臂 - 自然垂放 */}
+      <path d="M36 44 L24 72 L26 76 L38 56" className="stroke-primary-dark" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M64 44 L76 72 L74 76 L62 56" className="stroke-primary-dark" strokeWidth="1.5" strokeLinecap="round" />
+      {/* 下身 - 修身裤 */}
+      <path d="M44 78 L42 120 Q42 122 44 122 L56 122 Q58 122 58 120 L56 78"
+            className="fill-tag-bg stroke-primary-dark" strokeWidth="1.2" />
+      {/* 腿 */}
+      <line x1="45" y1="122" x2="41" y2="180" className="stroke-primary-dark" strokeWidth="2" strokeLinecap="round" />
+      <line x1="55" y1="122" x2="59" y2="180" className="stroke-primary-dark" strokeWidth="2" strokeLinecap="round" />
+      {/* 脚 */}
+      <line x1="35" y1="180" x2="47" y2="180" className="stroke-primary-dark" strokeWidth="2" strokeLinecap="round" />
+      <line x1="53" y1="180" x2="65" y2="180" className="stroke-primary-dark" strokeWidth="2" strokeLinecap="round" />
+      {/* 比例标注箭头 */}
+      <line x1="14" y1="36" x2="14" y2="78" className="stroke-text-muted" strokeWidth="0.8" strokeDasharray="2 2" />
+      <text x="8" y="60" fontSize="5" className="fill-text-muted">上身</text>
+      <line x1="14" y1="78" x2="14" y2="180" className="stroke-text-muted" strokeWidth="0.8" strokeDasharray="2 2" />
+      <text x="8" y="132" fontSize="5" className="fill-text-muted">腿长</text>
+      {/* 肩宽标注 */}
+      <line x1="24" y1="10" x2="34" y2="10" className="stroke-text-muted" strokeWidth="0.8" strokeDasharray="2 2" />
+      <line x1="66" y1="10" x2="76" y2="10" className="stroke-text-muted" strokeWidth="0.8" strokeDasharray="2 2" />
+      <text x="38" y="10" fontSize="4" className="fill-text-muted">肩宽</text>
+    </svg>
+  );
+}
+
+export default function PhotoUpload({
+  onImageReady,
+  disabled,
+}: PhotoUploadProps) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+
+    // 限制文件大小（最大 5MB）
+    if (file.size > 5 * 1024 * 1024) {
+      alert("图片太大，请选择 5MB 以内的照片");
+      return;
+    }
+
+    setFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setPreview(result);
+
+      // 传给父组件完整的 data URL（含正确 MIME 类型）
+      onImageReady(result, file);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  return (
+    <div className="w-full space-y-4">
+      {!preview && (
+        /* 拍照指南卡片 */
+        <div className="bg-card-bg rounded-2xl border border-border p-4">
+          <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
+            <span>📸</span> 拍照指南
+          </h3>
+          <div className="flex items-start gap-4">
+            {/* 参考图 */}
+            <div className="shrink-0 flex flex-col items-center gap-1">
+              <div className="bg-secondary/50 rounded-xl p-2">
+                <PoseGuide />
+              </div>
+              <span className="text-[10px] text-text-muted">参考姿势</span>
+            </div>
+            {/* 文字提示 */}
+            <div className="flex-1 space-y-2.5 pt-1">
+              <div className="flex items-start gap-2">
+                <span className="text-base leading-none mt-0.5">①</span>
+                <div>
+                  <p className="text-xs font-medium text-text-primary">正面全身照，自然站姿</p>
+                  <p className="text-[10px] text-text-muted">手机与人保持 1.5-2 米距离</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-base leading-none mt-0.5">②</span>
+                <div>
+                  <p className="text-xs font-medium text-text-primary">穿修身衣物，看清身形</p>
+                  <p className="text-[10px] text-text-muted">避免宽松衣物遮挡身体线条</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-base leading-none mt-0.5">③</span>
+                <div>
+                  <p className="text-xs font-medium text-text-primary">露出脸部，AI识别脸型风格</p>
+                  <p className="text-[10px] text-text-muted">正面清晰即可，AI会根据脸型推荐适合的领型和风格</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!preview ? (
+        <div
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
+          onClick={() => inputRef.current?.click()}
+          className="border-2 border-dashed border-border rounded-2xl p-8 text-center cursor-pointer
+                     hover:border-primary hover:bg-secondary/30 transition-all duration-200"
+        >
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-primary"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-text-primary font-medium">点击或拖拽上传照片</p>
+              <p className="text-text-muted text-sm mt-1">
+                按照上方指南拍一张照片，AI 帮你精准搭配
+              </p>
+            </div>
+            <span className="text-xs text-text-muted bg-secondary px-3 py-1 rounded-full">
+              支持 JPG / PNG
+            </span>
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleChange}
+            className="hidden"
+            disabled={disabled}
+          />
+        </div>
+      ) : (
+        <div className="relative rounded-2xl overflow-hidden bg-white shadow-sm border border-border">
+          <img
+            src={preview}
+            alt="上传的照片"
+            className="w-full max-h-80 object-contain"
+          />
+          <button
+            onClick={() => {
+              setPreview(null);
+              setFileName("");
+            }}
+            disabled={disabled}
+            className="absolute top-3 right-3 w-8 h-8 bg-black/50 text-white rounded-full
+                       flex items-center justify-center hover:bg-black/70 transition-colors"
+          >
+            ✕
+          </button>
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-3">
+            <span className="text-white text-sm">{fileName}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
