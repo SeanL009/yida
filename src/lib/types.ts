@@ -56,3 +56,10 @@ export const COLOR_SCHEMES = [
   { id: "甜美粉色系", emoji: "💗" },
   { id: "随机搭配", emoji: "🎲" },
 ];
+
+export const SEASONS = [
+  { id: "春季", emoji: "🌷" },
+  { id: "夏季", emoji: "☀️" },
+  { id: "秋季", emoji: "🍂" },
+  { id: "冬季", emoji: "❄️" },
+];

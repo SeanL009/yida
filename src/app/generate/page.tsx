@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import PhotoUpload from "@/components/PhotoUpload";
 import OutfitCard from "@/components/OutfitCard";
 import FeedbackForm from "@/components/FeedbackForm";
-import { STYLE_DNA, OCCASIONS, COLOR_SCHEMES } from "@/lib/types";
+import { STYLE_DNA, OCCASIONS, COLOR_SCHEMES, SEASONS } from "@/lib/types";
 import type { AnalysisResult, OutfitSuggestion } from "@/lib/types";
 import { recordGeneration } from "@/lib/dailyLimit";
 
@@ -17,6 +17,7 @@ export default function GeneratePage() {
   const [selectedStyle, setSelectedStyle] = useState<string>("");
   const [selectedOccasion, setSelectedOccasion] = useState<string>("");
   const [selectedColorScheme, setSelectedColorScheme] = useState<string>("随机搭配");
+  const [selectedSeason, setSelectedSeason] = useState<string>("");
   const [outfits, setOutfits] = useState<OutfitSuggestion[]>([]);
   const [error, setError] = useState<string>("");
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -72,6 +73,7 @@ export default function GeneratePage() {
           style: selectedStyle,
           occasion: selectedOccasion,
           colorScheme: selectedColorScheme,
+          season: selectedSeason,
           count: 1,
         }),
       });
@@ -106,6 +108,7 @@ export default function GeneratePage() {
           style: selectedStyle,
           occasion: selectedOccasion,
           colorScheme: selectedColorScheme,
+          season: selectedSeason,
           count: 1,
           variation: true,
         }),
@@ -175,6 +178,7 @@ export default function GeneratePage() {
           style: selectedStyle,
           occasion: selectedOccasion,
           colorScheme: selectedColorScheme,
+          season: selectedSeason,
           items: outfits[0].items,
           userImage: imageDataUrl,
         }),
@@ -201,6 +205,7 @@ export default function GeneratePage() {
     setSelectedStyle("");
     setSelectedOccasion("");
     setSelectedColorScheme("随机搭配");
+    setSelectedSeason("");
     setOutfits([]);
     setError("");
   };
@@ -449,6 +454,40 @@ export default function GeneratePage() {
                       )}
                       <span className="text-xl">{c.emoji}</span>
                       <span className="text-[10px] leading-tight text-center">{c.id}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 季节选择 */}
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary mb-3">
+                季节 <span className="text-text-muted font-normal text-xs">（可选，推荐当季搭配）</span>
+              </h3>
+              <div className="grid grid-cols-4 gap-2">
+                {SEASONS.map((s) => {
+                  const sel = selectedSeason === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedSeason(sel ? "" : s.id)}
+                      className={`relative flex flex-col items-center gap-1 p-3 rounded-xl border text-sm
+                        transition-all duration-200 active:scale-95
+                        ${sel
+                          ? "border-primary bg-gradient-to-b from-primary/8 to-primary/3 text-primary-dark font-medium shadow-sm"
+                          : "border-border bg-card-bg text-text-secondary hover:border-primary/30 hover:shadow-xs"
+                        }`}
+                    >
+                      {sel && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                      <span className="text-xl">{s.emoji}</span>
+                      <span className="text-xs">{s.id}</span>
                     </button>
                   );
                 })}

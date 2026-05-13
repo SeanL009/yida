@@ -22,7 +22,8 @@ export function buildOutfitPrompt(
   analysis: AnalysisResult,
   style: string,
   occasion: string,
-  items: Array<{ category: string; item: string; color?: string }>
+  items: Array<{ category: string; item: string; color?: string }>,
+  season?: string
 ): string {
   const itemsDesc = items
     .map((i) => {
@@ -31,12 +32,14 @@ export function buildOutfitPrompt(
     })
     .join("\n");
 
+  const seasonLine = season ? `\n季节：${season}` : "";
+
   return `一位年轻女性穿着以下全套搭配：
 
 ${itemsDesc}
 
 风格：${style}
-场合：${occasion}
+场合：${occasion}${seasonLine}
 体型：${analysis.bodyType}
 脸型：${analysis.faceShape}
 肤色：${analysis.skinTone}
@@ -57,7 +60,8 @@ export function buildOutfitI2IPrompt(
   analysis: AnalysisResult,
   style: string,
   occasion: string,
-  items: Array<{ category: string; item: string; color?: string }>
+  items: Array<{ category: string; item: string; color?: string }>,
+  season?: string
 ): string {
   const itemsDesc = items
     .map((i) => {
@@ -66,12 +70,14 @@ export function buildOutfitI2IPrompt(
     })
     .join("\n");
 
+  const seasonLine = season ? `\n季节：${season}` : "";
+
   return `将照片中人物的衣服更换为以下全套搭配：
 
 ${itemsDesc}
 
 风格：${style}
-场合：${occasion}
+场合：${occasion}${seasonLine}
 
 要求：
 - 只改变衣服，人物面部、发型、体型、肤色、背景全部保持不变

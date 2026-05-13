@@ -3,7 +3,7 @@ import { generateOutfits } from "@/lib/openai";
 
 export async function POST(request: NextRequest) {
   try {
-    const { analysis, style, occasion, colorScheme, count, variation } = await request.json();
+    const { analysis, style, occasion, colorScheme, season, count, variation } = await request.json();
 
     if (!analysis || !style || !occasion) {
       return NextResponse.json(
@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
       occasion,
       colorScheme,
       count ?? 1,
-      variation ?? false
+      variation ?? false,
+      season || ""
     );
 
     return NextResponse.json({ outfits });

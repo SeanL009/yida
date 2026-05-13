@@ -75,7 +75,8 @@ export async function generateOutfits(
   occasion: string,
   colorScheme: string = "随机搭配",
   count: number = 1,
-  variation: boolean = false
+  variation: boolean = false,
+  season: string = ""
 ): Promise<OutfitSuggestion[]> {
   const client = getDashScope();
 
@@ -89,6 +90,9 @@ export async function generateOutfits(
   const colorDesc = colorScheme === "随机搭配"
     ? "配色方案：根据风格和场合自动推荐最合适的配色"
     : `配色方向：${colorScheme}`;
+  const seasonDesc = season
+    ? `季节：${season}，请推荐适合该季节的材质和厚度`
+    : "";
 
   const variationHint = variation
     ? "\n- 注意：请生成一套与上次完全不同的搭配方案，更换不同的单品组合、颜色或款式"
@@ -108,6 +112,7 @@ export async function generateOutfits(
 - ${styleDesc}
 - ${occasionDesc}
 - ${colorDesc}
+- ${seasonDesc}
 - tips要实用，给出具体的穿搭技巧
 - 用中文返回
 - 方案标题控制在6字以内${variationHint}
@@ -139,6 +144,7 @@ export async function generateOutfits(
 ${styleDesc}
 ${occasionDesc}
 ${colorDesc}
+${seasonDesc}
 请生成${count}套穿搭方案。`,
       },
     ],

@@ -61,7 +61,7 @@ export default function Home() {
           <p className="animate-fade-up delay-300 text-text-secondary text-sm leading-relaxed max-w-[260px] mx-auto">
             AI 根据你的脸型、体型和肤色
             <br />
-            3秒生成3套专属穿搭方案
+            3秒生成专属穿搭方案
           </p>
 
           {/* CTA */}
@@ -136,7 +136,7 @@ export default function Home() {
                 step: "02",
                 icon: "✨",
                 title: "AI智能搭配",
-                desc: "根据你的特征和偏好，生成3套完整的穿搭方案",
+                desc: "根据你的特征和偏好，生成1套完整的穿搭方案",
                 color: "from-accent/20 to-accent/5",
               },
               {

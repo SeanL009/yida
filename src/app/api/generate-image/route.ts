@@ -3,7 +3,7 @@ import { buildOutfitPrompt, buildOutfitI2IPrompt, generateOutfitImage } from "@/
 
 export async function POST(request: NextRequest) {
   try {
-    const { analysis, style, occasion, colorScheme, items, userImage } = await request.json();
+    const { analysis, style, occasion, colorScheme, season, items, userImage } = await request.json();
 
     if (!analysis || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
 
     // 构造提示词：有用户照片时使用图生图（保持人物特征），否则使用文生图
     const prompt = userImage
-      ? buildOutfitI2IPrompt(analysis, style || "", occasion || "", items)
-      : buildOutfitPrompt(analysis, style || "", occasion || "", items);
+      ? buildOutfitI2IPrompt(analysis, style || "", occasion || "", items, season || "")
+      : buildOutfitPrompt(analysis, style || "", occasion || "", items, season || "");
 
     // 有照片时自动使用 wan2.5-i2i-preview 图生图编辑（主体一致性保持），无照片时使用 plus 文生图
     const result = await generateOutfitImage(apiKey, prompt, userImage || undefined);
