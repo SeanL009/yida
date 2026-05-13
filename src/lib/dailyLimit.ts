@@ -1,5 +1,3 @@
-import { getProStatus } from "./pro";
-
 const STORAGE_KEY = "yida_daily_usage";
 const DAILY_LIMIT = 3;
 
@@ -44,29 +42,17 @@ function saveUsage(usage: DailyUsage): void {
 
 /** 今天还有几次可用 */
 export function getRemainingUses(): number {
-  const pro = getProStatus();
-  if (pro.isPro) return Infinity;
-
   const usage = getUsage();
   return Math.max(0, DAILY_LIMIT - usage.count);
 }
 
 /** 检查是否还能生成 */
 export function canGenerate(): boolean {
-  const pro = getProStatus();
-  if (pro.isPro) return true;
-
   return getRemainingUses() > 0;
 }
 
 /** 记录一次生成，返回剩余次数 */
 export function recordGeneration(): { remaining: number; allowed: boolean } {
-  // Pro 用户永远允许，不消耗次数
-  const pro = getProStatus();
-  if (pro.isPro) {
-    return { remaining: Infinity, allowed: true };
-  }
-
   const usage = getUsage();
   if (usage.count >= DAILY_LIMIT) {
     return { remaining: 0, allowed: false };

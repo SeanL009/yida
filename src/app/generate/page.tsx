@@ -12,7 +12,6 @@ import {
   getRemainingUses,
   DAILY_LIMIT,
 } from "@/lib/dailyLimit";
-import { getProStatus, getProToken } from "@/lib/pro";
 import Link from "next/link";
 
 type Step = "upload" | "choose" | "generating" | "result";
@@ -28,9 +27,6 @@ export default function GeneratePage() {
   const [error, setError] = useState<string>("");
   const [usedCount, setUsedCount] = useState(0);
   const [limitReached, setLimitReached] = useState(false);
-  const [isPro, setIsPro] = useState(false);
-  const [proDaysLeft, setProDaysLeft] = useState(0);
-  const [serverProVerified, setServerProVerified] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // 穿搭照片生成
@@ -43,43 +39,8 @@ export default function GeneratePage() {
   const [imageGenError, setImageGenError] = useState("");
 
   useEffect(() => {
-    // 检查本地 Pro 状态
-    const pro = getProStatus();
-    if (pro.isPro) {
-      // 服务端验证 token
-      const token = getProToken();
-      if (token) {
-        fetch("/api/pro/status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            if (data.isPro) {
-              setIsPro(true);
-              setProDaysLeft(pro.daysLeft);
-            }
-          })
-          .catch(() => {
-            // 离线时信任本地状态
-            setIsPro(true);
-            setProDaysLeft(pro.daysLeft);
-          })
-          .finally(() => setServerProVerified(true));
-      } else {
-        setIsPro(true);
-        setProDaysLeft(pro.daysLeft);
-        setServerProVerified(true);
-      }
-    } else {
-      setServerProVerified(true);
-    }
-
-    if (!pro.isPro) {
-      setUsedCount(DAILY_LIMIT - getRemainingUses());
-      setLimitReached(!canGenerate());
-    }
+    setUsedCount(DAILY_LIMIT - getRemainingUses());
+    setLimitReached(!canGenerate());
   }, []);
 
   const handleImageReady = async (dataUrl: string) => {
@@ -150,13 +111,10 @@ export default function GeneratePage() {
   const handleRegenerate = async () => {
     if (isRegenerating) return;
 
-    // 非 Pro 用户需要消耗次数
-    if (!isPro) {
-      const check = recordGeneration();
-      if (!check.allowed) {
-        setLimitReached(true);
-        return;
-      }
+    const check = recordGeneration();
+    if (!check.allowed) {
+      setLimitReached(true);
+      return;
     }
 
     setIsRegenerating(true);
@@ -178,7 +136,7 @@ export default function GeneratePage() {
       const data = await res.json();
       if (data.outfits && data.outfits.length > 0) {
         setOutfits(data.outfits);
-        if (!isPro) setUsedCount((c) => c + 1);
+        setUsedCount((c) => c + 1);
       } else {
         setError(data.error || "生成失败");
       }
@@ -282,31 +240,13 @@ export default function GeneratePage() {
         <div className="flex items-center gap-2">
           <span className="text-primary text-xl">✨</span>
           <span className="font-bold text-text-primary text-lg">衣搭</span>
-          {isPro && (
-            <Link
-              href="/pro"
-              className="text-[10px] bg-gradient-to-r from-primary to-primary-light text-white px-2 py-0.5 rounded-full font-medium animate-fade-in"
-            >
-              ✨ Pro {proDaysLeft > 0 ? `${proDaysLeft}天` : ""}
-            </Link>
-          )}
         </div>
-        <div className="flex items-center gap-2">
-          {!isPro && (
-            <Link
-              href="/pro"
-              className="text-[10px] bg-gradient-to-r from-primary to-primary-light text-white px-2.5 py-1 rounded-full font-medium hover:opacity-90 transition-opacity shadow-sm shadow-primary/20"
-            >
-              ✨ Pro
-            </Link>
-          )}
-          <button
-            onClick={handleReset}
-            className="text-sm text-text-muted hover:text-text-primary transition-colors"
-          >
-            重新开始
-          </button>
-        </div>
+        <button
+          onClick={handleReset}
+          className="text-sm text-text-muted hover:text-text-primary transition-colors"
+        >
+          重新开始
+        </button>
       </div>
 
       {/* ===== 步骤指示器（优化版） ===== */}
@@ -541,20 +481,13 @@ export default function GeneratePage() {
             </div>
 
             {/* 生成按钮 / 已用完 */}
-            {limitReached && !isPro ? (
+            {limitReached ? (
               <div className="bg-card-bg rounded-2xl border border-border p-5 text-center space-y-3">
                 <div className="text-3xl">😅</div>
                 <p className="text-text-primary font-semibold">今日免费次数已用完</p>
                 <p className="text-text-muted text-sm">
                   每天免费 {DAILY_LIMIT} 次，明天再来吧
                 </p>
-                <Link
-                  href="/pro"
-                  className="inline-flex items-center gap-1.5 mt-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-light text-white
-                             rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98] shadow-sm"
-                >
-                  🚀 ¥19.9 升级 Pro · 无限次生成
-                </Link>
               </div>
             ) : (
               <div className="space-y-2">
@@ -569,11 +502,6 @@ export default function GeneratePage() {
                 </button>
                 <p className="text-center text-[11px] text-text-muted">
                   今日剩余 {DAILY_LIMIT - usedCount} 次免费生成
-                  {!isPro && (
-                    <Link href="/pro" className="text-primary hover:text-primary-dark ml-1">
-                      升级 Pro 享无限次
-                    </Link>
-                  )}
                 </p>
               </div>
             )}
@@ -630,7 +558,7 @@ export default function GeneratePage() {
                 ✨ 你的穿搭方案
               </h2>
               <span className="text-xs text-text-muted bg-secondary px-2.5 py-1 rounded-full">
-                {isPro ? "✨ Pro 无限次" : `今日 ${DAILY_LIMIT - usedCount}/${DAILY_LIMIT} 次剩余`}
+                今日 {DAILY_LIMIT - usedCount}/{DAILY_LIMIT} 次剩余
               </span>
             </div>
 
@@ -755,7 +683,7 @@ export default function GeneratePage() {
               <div className="flex gap-2.5">
                 <button
                   onClick={handleRegenerate}
-                  disabled={isRegenerating || (limitReached && !isPro)}
+                  disabled={isRegenerating || limitReached}
                   className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-light text-white
                              rounded-xl text-sm font-semibold hover:opacity-90 transition-all
                              active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-1.5"
@@ -789,15 +717,10 @@ export default function GeneratePage() {
               </button>
             </div>
 
-            {/* 非 Pro 用户的剩余次数提示 */}
-            {!isPro && (
-              <p className="text-center text-[11px] text-text-muted">
-                今日剩余 {DAILY_LIMIT - usedCount} 次
-                <Link href="/pro" className="text-primary hover:text-primary-dark ml-1">
-                  升级 Pro 享无限次更换
-                </Link>
-              </p>
-            )}
+            {/* 剩余次数提示 */}
+            <p className="text-center text-[11px] text-text-muted">
+              今日剩余 {DAILY_LIMIT - usedCount} 次
+            </p>
           </div>
         )}
       </div>

@@ -2,18 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getProStatus } from "@/lib/pro";
 
 export default function Navbar() {
-  const [isPro, setIsPro] = useState(false);
-  const [daysLeft, setDaysLeft] = useState(0);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const pro = getProStatus();
-    setIsPro(pro.isPro);
-    setDaysLeft(pro.daysLeft);
-
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
@@ -36,24 +29,12 @@ export default function Navbar() {
           <span>衣搭</span>
         </Link>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/generate"
-            className="text-xs text-text-muted hover:text-text-primary transition-colors"
-          >
-            搭配
-          </Link>
-          <Link
-            href="/pro"
-            className={`text-xs font-medium rounded-full px-2.5 py-1 transition-all ${
-              isPro
-                ? "bg-gradient-to-r from-primary to-primary-light text-white shadow-sm"
-                : "text-primary hover:bg-secondary"
-            }`}
-          >
-            {isPro ? `✨ Pro ${daysLeft > 0 ? `${daysLeft}天` : ""}` : "✨ Pro"}
-          </Link>
-        </div>
+        <Link
+          href="/generate"
+          className="text-xs text-text-muted hover:text-text-primary transition-colors"
+        >
+          搭配
+        </Link>
       </div>
     </nav>
   );

@@ -1,0 +1,209 @@
+From 2f3b7fe112d5b782e4beecd1307f82995f29e1d6 Mon Sep 17 00:00:00 2001
+From: Your Name <185855009@qq.com>
+Date: Wed, 13 May 2026 21:00:32 +0800
+Subject: [PATCH] fix: use user photo as reference for AI outfit image
+ generation
+
+Switch from text-to-image (wanx2.1-t2i-plus) to image-to-image (wanx-v1)
+when generating outfit photos, so the result preserves the user's face,
+hair, and body features instead of creating a generic person.
+
+Changes:
+- Add buildOutfitPrompt() back to openai-image.ts for text-to-image mode
+- API route now accepts userImage and uses buildOutfitI2IPrompt when available
+- Generate page passes imageDataUrl to the image generation API
+
+Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+---
+ src/app/api/generate-image/route.ts | 15 +++---
+ src/app/generate/page.tsx           |  1 +
+ src/lib/openai-image.ts             | 84 +++++++++++++++++++++--------
+ 3 files changed, 71 insertions(+), 29 deletions(-)
+
+diff --git a/src/app/api/generate-image/route.ts b/src/app/api/generate-image/route.ts
+index 337f2d7..2c45317 100644
+--- a/src/app/api/generate-image/route.ts
++++ b/src/app/api/generate-image/route.ts
+@@ -1,9 +1,9 @@
+ import { NextRequest, NextResponse } from "next/server";
+-import { buildOutfitPrompt, generateOutfitImage } from "@/lib/openai-image";
++import { buildOutfitPrompt, buildOutfitI2IPrompt, generateOutfitImage, IMAGE_MODEL_PLUS } from "@/lib/openai-image";
+ 
+ export async function POST(request: NextRequest) {
+   try {
+-    const { analysis, style, occasion, colorScheme, items } = await request.json();
++    const { analysis, style, occasion, colorScheme, items, userImage } = await request.json();
+ 
+     if (!analysis || !items || !Array.isArray(items) || items.length === 0) {
+       return NextResponse.json(
+@@ -20,12 +20,13 @@ export async function POST(request: NextRequest) {
+       );
+     }
+ 
+-    // 构造提示词
+-    const prompt = buildOutfitPrompt(analysis, style || "", occasion || "", items);
++    // 构造提示词：有用户照片时使用图生图（保持人物特征），否则使用文生图
++    const prompt = userImage
++      ? buildOutfitI2IPrompt(analysis, style || "", occasion || "", items)
++      : buildOutfitPrompt(analysis, style || "", occasion || "", items);
+ 
+-    // 使用 turbo 版（¥0.14/张，性价比高）
+-    // 如需更高质量可改为 IMAGE_MODEL_PLUS（¥0.20/张）
+-    const result = await generateOutfitImage(apiKey, prompt);
++    // 使用 plus 版（¥0.20/张，专业级细节）
++    const result = await generateOutfitImage(apiKey, prompt, userImage || undefined, IMAGE_MODEL_PLUS);
+ 
+     return NextResponse.json({
+       success: true,
+diff --git a/src/app/generate/page.tsx b/src/app/generate/page.tsx
+index a989459..c48dd5c 100644
+--- a/src/app/generate/page.tsx
++++ b/src/app/generate/page.tsx
+@@ -242,6 +242,7 @@ export default function GeneratePage() {
+           occasion: selectedOccasion,
+           colorScheme: selectedColorScheme,
+           items: outfits[0].items,
++          userImage: imageDataUrl,
+         }),
+       });
+       const data = await res.json();
+diff --git a/src/lib/openai-image.ts b/src/lib/openai-image.ts
+index 71a74aa..a474f92 100644
+--- a/src/lib/openai-image.ts
++++ b/src/lib/openai-image.ts
+@@ -1,8 +1,9 @@
+ import type { AnalysisResult } from "./types";
+ 
+-/** 通义万相可用的最佳模型 */
+-export const IMAGE_MODEL_PLUS = "wanx2.1-t2i-plus";   // ¥0.20/张 专业版
+-export const IMAGE_MODEL_TURBO = "wanx2.1-t2i-turbo"; // ¥0.14/张 极速版
++/** 通义万相可用模型 */
++export const IMAGE_MODEL_PLUS = "wanx2.1-t2i-plus";   // ¥0.20/张 文生图专业版
++export const IMAGE_MODEL_TURBO = "wanx2.1-t2i-turbo"; // ¥0.14/张 文生图极速版
++export const IMAGE_MODEL_I2I = "wanx-v1";              // ¥0.16/张 图生图（支持参考图）
+ 
+ interface ImageGenResult {
+   url: string;
+@@ -10,8 +11,7 @@ interface ImageGenResult {
+ }
+ 
+ /**
+- * 根据穿搭方案和分析结果构造通义万相提示词
+- * 风格：真实参考级穿搭展示，不做过度美化，符合衣搭"真实参考级"定位
++ * 构造文生图提示词 — 根据文本描述生成穿搭照片（无参考图时使用）
+  */
+ export function buildOutfitPrompt(
+   analysis: AnalysisResult,
+@@ -26,34 +26,74 @@ export function buildOutfitPrompt(
+     })
+     .join("\n");
+ 
+-  const bodyDesc = analysis.bodyType
+-    ? (analysis.bodyType.includes("身材") ? analysis.bodyType : `${analysis.bodyType}身材`)
+-    : "匀称身材";
++  return `一位年轻女性穿着以下全套搭配：
+ 
+-  return `一张真实参考级穿搭展示照片。一位${bodyDesc}的亚洲年轻女性，${analysis.skinTone || "自然"}肤色，${analysis.faceShape || ""}脸型，身穿以下全套搭配：
++${itemsDesc}
++
++风格：${style}
++场合：${occasion}
++体型：${analysis.bodyType}
++脸型：${analysis.faceShape}
++肤色：${analysis.skinTone}
++
++要求：
++- 真实参考级穿搭展示，写实风格
++- 全身展示，自然站姿
++- 衣服的颜色、款式准确还原
++- 白色或纯色背景，简洁干净
++- 高清细节，光线柔和自然`;
++}
++
++/**
++ * 构造图生图提示词 — 基于用户照片换装
++ * 保持人物面部/发型/体型不变，只更换衣物
++ */
++export function buildOutfitI2IPrompt(
++  analysis: AnalysisResult,
++  style: string,
++  occasion: string,
++  items: Array<{ category: string; item: string; color?: string }>
++): string {
++  const itemsDesc = items
++    .map((i) => {
++      const colorStr = i.color ? `${i.color}色的` : "";
++      return `- ${i.category}：${colorStr}${i.item}`;
++    })
++    .join("\n");
++
++  return `保持人物的面部特征、发型、体型和肤色完全不变，仅将衣服更换为以下全套搭配：
+ 
+ ${itemsDesc}
+ 
+ 风格：${style}
+ 场合：${occasion}
+ 
+-拍摄要求：
+-- 正面全身站立，自然站姿，手机拍摄感
+-- 纯白/浅灰背景，自然光线
+-- 写实风格，不要过度美化或滤镜
+-- 服装颜色和款式准确还原
+-- 不做杂志大片效果，呈现真实穿搭参考感
+-- 照片比例为全身竖构图`;
++要求：
++- 人物面部、发型必须与原图一致
++- 衣服的颜色、款式准确还原
++- 全身展示，自然站姿
++- 写实风格，真实参考级穿搭展示
++- 不要改变背景、光线和人物姿态`;
+ }
+ 
+ /**
+- * 调用通义万相文生图 API（异步任务）
++ * 调用通义万相 API 生成穿搭照片
++ * 如果传了 userImage，使用图生图模式（保持人物特征换装）
++ * 否则使用文生图模式（根据文本描述生成）
+  */
+ export async function generateOutfitImage(
+   apiKey: string,
+   prompt: string,
+-  model: string = IMAGE_MODEL_TURBO
++  userImage?: string,       // data URL of user's photo
++  model?: string            // override model
+ ): Promise<ImageGenResult> {
++  const actualModel = model || (userImage ? IMAGE_MODEL_I2I : IMAGE_MODEL_PLUS);
++
++  const input: Record<string, string> = { prompt };
++  if (userImage) {
++    input.image = userImage;
++  }
++
+   // 1. 提交异步任务
+   const submitResp = await fetch(
+     "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis",
+@@ -65,8 +105,8 @@ export async function generateOutfitImage(
+         "X-DashScope-Async": "enable",
+       },
+       body: JSON.stringify({
+-        model,
+-        input: { prompt },
++        model: actualModel,
++        input,
+         parameters: { size: "1024*1024", n: 1 },
+       }),
+     }
+@@ -83,8 +123,8 @@ export async function generateOutfitImage(
+     throw new Error("提交成功但未获取到任务ID");
+   }
+ 
+-  // 2. 轮询结果（最多等 60 秒）
+-  const maxPolls = 30;
++  // 2. 轮询结果（最多等 90 秒）
++  const maxPolls = 45;
+   for (let i = 0; i < maxPolls; i++) {
+     await new Promise((r) => setTimeout(r, 2000));
+ 
+-- 
+2.53.0.windows.2
+
