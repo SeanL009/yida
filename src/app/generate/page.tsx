@@ -33,6 +33,15 @@ export default function GeneratePage() {
   const [serverProVerified, setServerProVerified] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
+  // 穿搭照片生成
+  const [showImagePayment, setShowImagePayment] = useState(false);
+  const [imageGenCode, setImageGenCode] = useState("");
+  const [isImageActivating, setIsImageActivating] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState("");
+  const [generatedImagePrompt, setGeneratedImagePrompt] = useState("");
+  const [imageGenError, setImageGenError] = useState("");
+
   useEffect(() => {
     // 检查本地 Pro 状态
     const pro = getProStatus();
@@ -177,6 +186,76 @@ export default function GeneratePage() {
       setError("网络错误，请重试");
     } finally {
       setIsRegenerating(false);
+    }
+  };
+
+  /** 激活并生成穿搭照片 */
+  const handleActivateAndGenerateImage = async () => {
+    const trimmed = imageGenCode.trim();
+    if (!trimmed) {
+      setImageGenError("请输入激活码");
+      return;
+    }
+
+    setIsImageActivating(true);
+    setImageGenError("");
+
+    try {
+      // 验证激活码（复用 Pro 的 verify API）
+      const verifyRes = await fetch("/api/pro/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: trimmed }),
+      });
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || !verifyData.success) {
+        setImageGenError("激活码无效");
+        setIsImageActivating(false);
+        return;
+      }
+
+      // 激活成功 → 开始生成
+      await doGenerateImage();
+    } catch {
+      setImageGenError("验证失败，请稍后重试");
+      setIsImageActivating(false);
+    }
+  };
+
+  /** 直接生成穿搭照片（已付费/已激活后调用） */
+  const doGenerateImage = async () => {
+    if (isGeneratingImage || !analysis || outfits.length === 0) return;
+
+    setIsGeneratingImage(true);
+    setImageGenError("");
+    setShowImagePayment(false);
+    setGeneratedImageUrl("");
+
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis,
+          style: selectedStyle,
+          occasion: selectedOccasion,
+          colorScheme: selectedColorScheme,
+          items: outfits[0].items,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setGeneratedImageUrl(data.imageUrl);
+        setGeneratedImagePrompt(data.prompt || "");
+      } else {
+        setImageGenError(data.error || "生成失败");
+      }
+    } catch {
+      setImageGenError("网络错误，请稍后重试");
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -558,6 +637,115 @@ export default function GeneratePage() {
             {outfits.length > 0 && (
               <div className="animate-slide-up" key={outfits[0].id}>
                 <OutfitCard outfit={outfits[0]} />
+
+                {/* 生成穿搭照片 */}
+                <div className="mt-3">
+                  {generatedImageUrl ? (
+                    /* 已生成照片展示 */
+                    <div className="bg-card-bg rounded-2xl overflow-hidden border border-border animate-scale-up">
+                      <div className="relative">
+                        <img
+                          src={generatedImageUrl}
+                          alt="AI生成的穿搭照片"
+                          className="w-full object-contain max-h-[500px] bg-white"
+                        />
+                        <div className="absolute top-2.5 left-2.5 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
+                          📸 AI 穿搭照片
+                        </div>
+                      </div>
+                      <div className="p-3 flex items-center justify-between">
+                        <span className="text-[10px] text-text-muted">
+                          {generatedImagePrompt ? "AI 根据穿搭方案生成" : ""}
+                        </span>
+                        <a
+                          href={generatedImageUrl}
+                          download="yida-outfit.jpg"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary hover:text-primary-dark font-medium transition-colors"
+                        >
+                          保存图片 ↗
+                        </a>
+                      </div>
+                    </div>
+                  ) : isGeneratingImage ? (
+                    /* 生成中 */
+                    <div className="bg-card-bg rounded-2xl border border-border p-8 text-center animate-fade-in">
+                      <div className="relative w-14 h-14 mx-auto">
+                        <div className="absolute inset-0 rounded-full border-3 border-secondary" />
+                        <div className="absolute inset-0 rounded-full border-3 border-primary border-t-transparent animate-spin" />
+                        <div className="absolute inset-0 flex items-center justify-center text-xl">🎨</div>
+                      </div>
+                      <p className="text-sm text-text-primary font-medium mt-3">AI 正在生成穿搭照片...</p>
+                      <p className="text-[11px] text-text-muted mt-1">大约需要 10-15 秒</p>
+                    </div>
+                  ) : showImagePayment ? (
+                    /* 支付/激活 */
+                    <div className="bg-card-bg rounded-2xl border border-border p-4 animate-fade-in">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-lg">📸</span>
+                        <span className="text-sm font-semibold text-text-primary">生成穿搭照片</span>
+                        <span className="text-xs bg-gradient-to-r from-primary to-primary-light text-white px-2 py-0.5 rounded-full font-medium">¥0.99</span>
+                      </div>
+
+                      {/* 激活码输入（MVP） */}
+                      <div className="space-y-2.5">
+                        <p className="text-xs text-text-secondary">输入激活码生成穿搭照片</p>
+                        <input
+                          value={imageGenCode}
+                          onChange={(e) => {
+                            setImageGenCode(e.target.value);
+                            if (imageGenError) setImageGenError("");
+                          }}
+                          placeholder="请输入激活码"
+                          maxLength={32}
+                          disabled={isImageActivating}
+                          className="w-full rounded-xl border border-border bg-white p-2.5 text-sm
+                                     text-text-primary placeholder:text-text-muted/60 outline-none text-center tracking-[0.2em]
+                                     focus:border-primary/40 focus:ring-2 focus:ring-primary/10
+                                     disabled:opacity-50 transition-all"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setShowImagePayment(false)}
+                            className="flex-1 py-2.5 border border-border rounded-xl text-xs text-text-muted
+                                       hover:text-text-primary transition-colors"
+                          >
+                            取消
+                          </button>
+                          <button
+                            onClick={handleActivateAndGenerateImage}
+                            disabled={isImageActivating || !imageGenCode.trim()}
+                            className="flex-1 py-2.5 bg-gradient-to-r from-primary to-primary-light text-white
+                                       rounded-xl text-xs font-semibold disabled:opacity-40
+                                       hover:opacity-90 transition-all active:scale-[0.98]"
+                          >
+                            {isImageActivating ? "验证中..." : "📸 生成照片"}
+                          </button>
+                        </div>
+                        {imageGenError && (
+                          <p className="text-xs text-red-400 animate-fade-in">{imageGenError}</p>
+                        )}
+                        <p className="text-[10px] text-text-muted text-center">
+                          共需生成 1 张 · 支付后不限制使用次数
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 生成按钮 */
+                    <button
+                      onClick={() => setShowImagePayment(true)}
+                      className="w-full py-3 border-2 border-dashed border-primary/30 rounded-xl
+                                 text-sm font-medium text-primary hover:border-primary/60
+                                 hover:bg-primary/5 transition-all active:scale-[0.98]
+                                 flex items-center justify-center gap-2"
+                    >
+                      <span>📸</span>
+                      生成穿搭照片
+                      <span className="text-[10px] bg-primary/10 text-primary-dark px-1.5 py-0.5 rounded">¥0.99</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
