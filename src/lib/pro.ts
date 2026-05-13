@@ -1,6 +1,6 @@
 "use client";
 
-export const ACTIVATION_CODE = "YIDAPRO2026";
+export const ACTIVATION_CODE = "1314";
 export const PRO_DURATION_DAYS = 30;
 const STORAGE_KEY = "yida_pro";
 

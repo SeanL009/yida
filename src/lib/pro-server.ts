@@ -52,7 +52,7 @@ function generateToken(): string {
 /** 验证激活码并激活 Pro，返回 token 和过期时间 */
 export function activatePro(code: string): { success: boolean; token?: string; expiresAt?: string; error?: string } {
   // MVP: 固定激活码 "YIDAPRO2026"，空字符串也允许（开发模式）
-  if (code !== "YIDAPRO2026" && code !== "") {
+  if (code !== "1314" && code !== "") {
     return { success: false, error: "激活码无效" };
   }
 
