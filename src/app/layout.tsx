@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
   title: "衣搭 - AI穿搭助手 | 每天三套，穿出高级感",
@@ -15,6 +16,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-warm font-sans">
+        <Navbar />
         {children}
       </body>
     </html>

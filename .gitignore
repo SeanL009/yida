@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# runtime data (pro users, etc.)
+/data/
+yida-deploy.tar.gz

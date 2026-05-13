@@ -260,6 +260,44 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ============ Pro 推广 ============ */}
+      <AnimatedSection>
+        <section className="px-6 py-14">
+          <div className="max-w-sm mx-auto">
+            <div className="bg-gradient-to-br from-primary/10 via-accent/5 to-primary/5 rounded-2xl border border-primary/20 p-6 text-center relative overflow-hidden">
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
+              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-accent/10 rounded-full blur-3xl" />
+              <div className="relative space-y-4">
+                <div className="text-4xl">👑</div>
+                <div>
+                  <h2 className="text-xl font-bold text-text-primary">升级 Pro 会员</h2>
+                  <p className="text-sm text-text-secondary mt-1">每天仅需 0.66 元，无限次穿搭生成</p>
+                </div>
+                <div className="flex items-center justify-center gap-4 text-xs">
+                  <div className="bg-white/60 rounded-lg px-3 py-2">
+                    <p className="text-text-muted">免费</p>
+                    <p className="text-text-primary font-semibold">3次/天</p>
+                  </div>
+                  <div className="text-text-muted">→</div>
+                  <div className="bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg px-3 py-2">
+                    <p className="text-primary-dark">Pro</p>
+                    <p className="text-primary-dark font-bold">无限次 ✨</p>
+                  </div>
+                </div>
+                <Link
+                  href="/pro"
+                  className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-light
+                             text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-primary/25
+                             transition-all active:scale-[0.98] shadow-sm"
+                >
+                  🚀 ¥19.9/月 开通 Pro
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </AnimatedSection>
+
       {/* ============ 最终CTA ============ */}
       <AnimatedSection>
         <section className="px-6 py-16 text-center">
@@ -295,6 +333,8 @@ export default function Home() {
       <footer className="text-center py-8 px-6">
         <div className="max-w-sm mx-auto space-y-3 animate-fade-in">
           <div className="flex items-center justify-center gap-4">
+            <Link href="/pro" className="text-xs text-primary hover:text-primary-dark transition-colors">Pro 会员</Link>
+            <span className="w-px h-3 bg-border" />
             <span className="text-xs text-text-muted">衣搭 · AI穿搭助手</span>
             <span className="w-px h-3 bg-border" />
             <span className="text-xs text-text-muted">© 2026</span>
