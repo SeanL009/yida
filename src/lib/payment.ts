@@ -4,12 +4,12 @@ import path from "path";
 
 export interface PaymentOrder {
   tradeOrderId: string;
-  totalFee: number;
+  totalFee: number;       // 单位：元
   title: string;
   status: "pending" | "paid" | "completed" | "expired";
   createdAt: string;
   paidAt?: string;
-  openOrderId?: string;
+  payjsOrderId?: string;
   transactionId?: string;
 }
 
@@ -86,47 +86,94 @@ export function getOrder(tradeOrderId: string): PaymentOrder | null {
   return orders[tradeOrderId] || null;
 }
 
+// ======== PayJS 支付相关 ========
+
 /**
- * 生成虎皮椒签名
- * 规则：所有非空参数按 key ASCII 排序 → key=value&... 拼接 → 末尾拼 AppSecret → MD5
+ * PayJS 签名算法
+ * 1. 移除 sign 字段
+ * 2. 按 key ASCII 升序排序
+ * 3. 拼接 key1=value1&key2=value2&key={商户密钥}
+ * 4. MD5 → 大写
  */
-export function generateSign(
+export function payjsSign(
   params: Record<string, string | number>,
-  appSecret: string
+  key: string
 ): string {
-  const keys = Object.keys(params)
-    .filter((k) => k !== "hash" && params[k] !== null && params[k] !== "")
-    .sort();
+  const sorted: Record<string, string | number> = {};
+  Object.keys(params)
+    .filter((k) => k !== "sign" && params[k] !== null && params[k] !== "")
+    .sort()
+    .forEach((k) => {
+      sorted[k] = params[k];
+    });
 
-  const str = keys.map((k) => `${k}=${params[k]}`).join("&") + appSecret;
-  return crypto.createHash("md5").update(str).digest("hex");
+  const str = Object.entries(sorted)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("&");
+
+  return crypto.createHash("md5").update(`${str}&key=${key}`).digest("hex").toUpperCase();
 }
 
-/**
- * 验证虎皮椒回调签名
- */
-export function verifySign(
+/** 验证 PayJS 回调签名 */
+export function payjsVerifySign(
   params: Record<string, string | number>,
-  appSecret: string
+  key: string
 ): boolean {
-  const receivedHash = String(params.hash || "");
-  if (!receivedHash) return false;
-  const calculated = generateSign(params, appSecret);
-  return calculated === receivedHash;
+  const received = String(params.sign || "");
+  if (!received) return false;
+  const calculated = payjsSign(params, key);
+  return calculated === received;
 }
 
-/** 虎皮椒支付网关配置 */
-export const XUNHU_CONFIG = {
-  get endpoint() {
-    return process.env.XUNHU_ENDPOINT || "https://api.xunhupay.com/payment/do.html";
+/** PayJS 配置 */
+export const PAYJS_CONFIG = {
+  get mchid() {
+    return process.env.PAYJS_MCHID || "";
   },
-  get appid() {
-    return process.env.XUNHU_APPID || "";
-  },
-  get appSecret() {
-    return process.env.XUNHU_APPSECRET || "";
+  get key() {
+    return process.env.PAYJS_KEY || "";
   },
   get notifyUrl() {
-    return process.env.XUNHU_NOTIFY_URL || "https://yida.sean.my/api/payment/notify";
+    return process.env.PAYJS_NOTIFY_URL || "https://jiulant.cn/api/payment/notify";
   },
+  /** Native 扫码支付 */
+  nativeEndpoint: "https://payjs.cn/api/native",
+  /** 收银台模式 */
+  cashierEndpoint: "https://payjs.cn/api/cashier",
 };
+
+/**
+ * 调用 PayJS Native 扫码支付
+ * 返回二维码 URL 和 payjs 订单号
+ */
+export async function payjsNativePay(params: {
+  mchid: string;
+  total_fee: number;   // 单位：分
+  out_trade_no: string;
+  body?: string;
+  attach?: string;
+  notify_url?: string;
+  sign: string;
+}): Promise<{
+  return_code: number;
+  return_msg: string;
+  payjs_order_id: string;
+  code_url: string;
+  qrcode: string;
+}> {
+  const resp = await fetch(PAYJS_CONFIG.nativeEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  return resp.json();
+}
+
+/**
+ * 生成收银台 URL（微信内打开可直接支付）
+ */
+export function buildCashierUrl(params: Record<string, string | number>): string {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => search.set(k, String(v)));
+  return `${PAYJS_CONFIG.cashierEndpoint}?${search.toString()}`;
+}

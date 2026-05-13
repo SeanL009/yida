@@ -2,70 +2,70 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   generateOrderId,
   createOrder,
-  generateSign,
-  XUNHU_CONFIG,
+  payjsSign,
+  payjsNativePay,
+  buildCashierUrl,
+  PAYJS_CONFIG,
 } from "@/lib/payment";
 
 export async function POST(request: NextRequest) {
   try {
     const { title } = await request.json();
 
-    if (!XUNHU_CONFIG.appid || !XUNHU_CONFIG.appSecret) {
+    if (!PAYJS_CONFIG.mchid || !PAYJS_CONFIG.key) {
       return NextResponse.json({ error: "支付未配置" }, { status: 500 });
     }
 
-    // ¥0.99 / 次
-    const totalFee = "0.99";
-    const tradeOrderId = generateOrderId();
-    const time = Math.floor(Date.now() / 1000);
-    const nonceStr = Math.random().toString(36).substring(2, 18);
+    // ¥0.99 = 99 分（PayJS 金额单位是分）
+    const totalFee = 99;
+    const outTradeNo = generateOrderId();
 
-    // 构建请求参数
-    const params: Record<string, string | number> = {
-      version: "1.1",
-      appid: XUNHU_CONFIG.appid,
-      trade_order_id: tradeOrderId,
+    // 构建 Native 扫码支付参数
+    const nativeParams: Record<string, string | number> = {
+      mchid: PAYJS_CONFIG.mchid,
       total_fee: totalFee,
-      title: title || "衣搭 - AI穿搭照片",
-      time,
-      notify_url: XUNHU_CONFIG.notifyUrl,
-      nonce_str: nonceStr,
-      // 用户支付后跳转回生成页
-      return_url: "https://jiulant.cn/generate",
-      callback_url: "https://jiulant.cn/generate",
-      attach: tradeOrderId,
+      out_trade_no: outTradeNo,
+      body: title || "衣搭 - AI穿搭照片",
+      notify_url: PAYJS_CONFIG.notifyUrl,
+      attach: outTradeNo,
     };
+    nativeParams.sign = payjsSign(nativeParams, PAYJS_CONFIG.key);
 
-    // 生成签名
-    const hash = generateSign(params, XUNHU_CONFIG.appSecret);
-    params.hash = hash;
+    // 调用 PayJS Native API 获取二维码
+    const result = await payjsNativePay(nativeParams as any);
 
-    // 调用虎皮椒 API
-    const resp = await fetch(XUNHU_CONFIG.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams(params as Record<string, string>),
-    });
-
-    const data = await resp.json();
-
-    if (!resp.ok || data.errcode !== 0) {
+    if (result.return_code !== 1) {
+      console.error("PayJS error:", result);
       return NextResponse.json(
-        { error: data.errmsg || "创建支付订单失败" },
+        { error: result.return_msg || "创建支付订单失败" },
         { status: 500 }
       );
     }
 
     // 持久化订单
-    createOrder(tradeOrderId, 0.99, title || "AI穿搭照片");
-    // 注意：虎皮椒实际可能返回 errcode=0 但需要检查 data.errcode
-    // 文档中说返回 errcode=0 表示成功
+    createOrder(outTradeNo, 0.99, title || "AI穿搭照片");
+
+    // 生成收银台 URL（微信内打开可直接支付）
+    const cashierParams: Record<string, string | number> = {
+      mchid: PAYJS_CONFIG.mchid,
+      total_fee: totalFee,
+      out_trade_no: outTradeNo,
+      body: title || "衣搭 - AI穿搭照片",
+      notify_url: PAYJS_CONFIG.notifyUrl,
+      callback_url: "https://jiulant.cn/generate",
+      auto: 1,   // 自动弹出支付
+    };
+    cashierParams.sign = payjsSign(cashierParams, PAYJS_CONFIG.key);
+    const cashierUrl = buildCashierUrl(cashierParams);
 
     return NextResponse.json({
       success: true,
-      orderId: tradeOrderId,
-      qrCodeUrl: data.url_qrcode,
-      redirectUrl: data.url,
+      orderId: outTradeNo,
+      // 二维码（PC 用 / 截图扫码）
+      codeUrl: result.code_url,
+      qrcode: result.qrcode,    // base64 图片
+      // 收银台链接（手机微信内直接支付）
+      cashierUrl,
     });
   } catch (error) {
     console.error("Payment create error:", error);

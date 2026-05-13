@@ -33,6 +33,7 @@ export default function GeneratePage() {
   // 支付
   const [paymentOrderId, setPaymentOrderId] = useState("");
   const [paymentQrCode, setPaymentQrCode] = useState("");
+  const [paymentCashierUrl, setPaymentCashierUrl] = useState("");
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [isPollingPayment, setIsPollingPayment] = useState(false);
   const [showActivationCode, setShowActivationCode] = useState(false);
@@ -120,6 +121,7 @@ export default function GeneratePage() {
     setIsPollingPayment(false);
     setPaymentQrCode("");
     setPaymentOrderId("");
+    setPaymentCashierUrl("");
 
     try {
       const res = await fetch("/api/generate", {
@@ -182,7 +184,7 @@ export default function GeneratePage() {
     }
   };
 
-  /** 创建虎皮椒支付订单并开始轮询 */
+  /** 创建 PayJS 支付订单并开始轮询 */
   const handleCreatePayment = async () => {
     if (isCreatingPayment) return;
     setIsCreatingPayment(true);
@@ -203,7 +205,9 @@ export default function GeneratePage() {
       }
 
       setPaymentOrderId(data.orderId);
-      setPaymentQrCode(data.qrCodeUrl);
+      // PayJS 返回 base64 二维码图片
+      setPaymentQrCode(data.qrcode ? `data:image/png;base64,${data.qrcode}` : data.codeUrl);
+      setPaymentCashierUrl(data.cashierUrl || "");
       setIsCreatingPayment(false);
       setIsPollingPayment(true);
 
@@ -760,12 +764,27 @@ export default function GeneratePage() {
                           <div className="flex justify-center">
                             <img
                               src={paymentQrCode}
-                              alt="支付宝/微信收款码"
+                              alt="微信收款码"
                               className="w-48 h-48 object-contain rounded-xl border border-border"
                             />
                           </div>
                           <p className="text-sm text-text-primary font-medium text-center">
-                            请使用支付宝扫码支付
+                            微信扫码支付
+                          </p>
+                          {paymentCashierUrl && (
+                            <a
+                              href={paymentCashierUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block w-full py-2.5 bg-[#07C160] text-white rounded-xl
+                                         text-sm font-semibold text-center hover:opacity-90
+                                         transition-all active:scale-[0.98]"
+                            >
+                              微信内直接支付 ↗
+                            </a>
+                          )}
+                          <p className="text-xs text-text-muted text-center">
+                            截图保存二维码 → 微信扫一扫 → 从相册选择
                           </p>
                           {isPollingPayment ? (
                             <div className="flex items-center justify-center gap-2 text-sm text-text-muted">

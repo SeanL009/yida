@@ -1,57 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySign, updateOrderStatus, XUNHU_CONFIG } from "@/lib/payment";
+import { payjsVerifySign, updateOrderStatus, PAYJS_CONFIG } from "@/lib/payment";
 
 /**
- * 虎皮椒异步回调通知
- * 用户付款后，虎皮椒会 POST 到此地址
- * 必须返回 "success"（纯文本）表示接收成功，否则会重试最多6次
+ * PayJS 异步回调通知
+ * 用户支付成功后 PayJS 会 POST 到此地址
+ * 必须在 3 秒内返回 "success"（纯文本），否则会重试
+ * 重试频率：0、15、30、180、1800、3600 秒
  */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const params: Record<string, string | number> = {};
 
-    // 将 FormData 转为普通对象
     for (const [key, value] of formData.entries()) {
       params[key] = String(value);
     }
 
-    // 验证签名
-    if (!verifySign(params, XUNHU_CONFIG.appSecret)) {
-      console.error("Payment notify: invalid signature");
+    // 验签
+    if (!payjsVerifySign(params, PAYJS_CONFIG.key)) {
+      console.error("PayJS notify: invalid signature");
       return new NextResponse("fail", { status: 200 });
     }
 
-    const tradeOrderId = String(params.trade_order_id || "");
-    const status = String(params.status || "");
-    const openOrderId = String(params.open_order_id || "");
+    const returnCode = Number(params.return_code);
+    const outTradeNo = String(params.out_trade_no || "");
+    const payjsOrderId = String(params.payjs_order_id || "");
     const transactionId = String(params.transaction_id || "");
-    const totalFee = String(params.total_fee || "");
+    const totalFee = Number(params.total_fee || 0);
 
-    if (!tradeOrderId) {
-      console.error("Payment notify: missing trade_order_id");
+    if (returnCode !== 1) {
+      console.warn("PayJS notify: payment not successful", params);
+      return new NextResponse("success", { status: 200 });
+    }
+
+    if (!outTradeNo) {
+      console.error("PayJS notify: missing out_trade_no");
       return new NextResponse("fail", { status: 200 });
     }
 
-    // 只处理已支付状态
-    if (status === "OD") {
-      const updated = updateOrderStatus(tradeOrderId, "paid", {
-        paidAt: new Date().toISOString(),
-        openOrderId,
-        transactionId,
-      });
+    // 更新订单为已支付
+    const updated = updateOrderStatus(outTradeNo, "paid", {
+      paidAt: new Date().toISOString(),
+      payjsOrderId,
+      transactionId,
+    });
 
-      if (updated) {
-        console.log(`Payment success: order=${tradeOrderId}, fee=${totalFee}`);
-      } else {
-        console.warn(`Payment notify: order not found: ${tradeOrderId}`);
-      }
+    if (updated) {
+      console.log(`PayJS payment success: order=${outTradeNo}, fee=${totalFee}分`);
+    } else {
+      console.warn(`PayJS notify: order not found: ${outTradeNo}`);
     }
 
-    // 虎皮椒要求返回 "success"（纯文本）
+    // PayJS 要求返回 "success" 纯文本
     return new NextResponse("success", { status: 200 });
   } catch (error) {
-    console.error("Payment notify error:", error);
+    console.error("PayJS notify error:", error);
     return new NextResponse("fail", { status: 200 });
   }
 }
