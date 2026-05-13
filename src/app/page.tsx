@@ -1,29 +1,56 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
 import FeedbackForm from "@/components/FeedbackForm";
+import { useInView } from "@/hooks/useInView";
+
+/* 动画包装器 — 滚动到视口时触发入场动画 */
+function AnimatedSection({
+  children,
+  className = "",
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  const [ref, inView] = useInView<HTMLDivElement>({ triggerOnce: true });
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out ${
+        inView
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-8"
+      } ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function Home() {
   return (
     <div className="flex-1 flex flex-col">
       {/* ============ Hero ============ */}
       <section className="relative min-h-dvh flex flex-col items-center justify-center px-6 py-20 text-center overflow-hidden">
-        {/* 装饰背景 */}
+        {/* 简化装饰背景 */}
         <div className="absolute inset-0 bg-gradient-to-b from-warm via-white to-warm" />
-        <div className="absolute top-[5%] right-[-20%] w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-[15%] left-[-25%] w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
-        <div className="absolute top-[40%] left-[10%] w-32 h-32 bg-primary/5 rounded-full blur-2xl" />
+        <div className="absolute top-[10%] right-[-10%] w-[300px] h-[300px] bg-gradient-to-br from-primary/15 via-primary-light/10 to-transparent rounded-full blur-[80px]" />
+        <div className="absolute bottom-[20%] left-[-15%] w-[250px] h-[250px] bg-gradient-to-tr from-accent/10 to-transparent rounded-full blur-[70px]" />
 
         <div className="relative z-10 max-w-sm mx-auto space-y-8">
           {/* 品牌标签 */}
-          <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-xs border border-border/60">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+          <div className="animate-fade-up delay-100 inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-xs border border-border/60">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-soft" />
             <span className="text-xs text-primary-dark font-medium tracking-wide">
               AI 智能穿搭
             </span>
           </div>
 
           {/* 主标题 */}
-          <h1 className="text-[2rem] font-bold text-text-primary leading-[1.15] tracking-tight">
+          <h1 className="animate-fade-up delay-200 text-[2rem] font-bold text-text-primary leading-[1.15] tracking-tight">
             上传一张照片
             <br />
             <span className="bg-gradient-to-r from-primary via-primary-light to-accent bg-clip-text text-transparent">
@@ -31,14 +58,14 @@ export default function Home() {
             </span>
           </h1>
 
-          <p className="text-text-secondary text-sm leading-relaxed max-w-[260px] mx-auto">
+          <p className="animate-fade-up delay-300 text-text-secondary text-sm leading-relaxed max-w-[260px] mx-auto">
             AI 根据你的脸型、体型和肤色
             <br />
             3秒生成3套专属穿搭方案
           </p>
 
           {/* CTA */}
-          <div className="flex flex-col items-center gap-3 pt-1">
+          <div className="animate-fade-up delay-400 flex flex-col items-center gap-3 pt-1">
             <Link
               href="/generate"
               className="group inline-flex items-center gap-2 bg-gradient-to-r from-primary to-primary-light
@@ -55,7 +82,7 @@ export default function Home() {
           </div>
 
           {/* 浮动的预览卡片 */}
-          <div className="pt-4 animate-float">
+          <div className="animate-scale-up delay-500 pt-4 animate-float">
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-border/60 p-4 text-left max-w-[280px] mx-auto">
               <div className="flex items-center gap-2.5 mb-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-white text-sm shadow-sm">
@@ -86,15 +113,17 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ============ 使用流程 ============ */}
+      {/* ============ 使用流程（时间线样式） ============ */}
       <section className="px-6 py-14 bg-white">
         <div className="max-w-sm mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-xl font-bold text-text-primary">三步搞定每日穿搭</h2>
-            <p className="text-sm text-text-muted mt-2">不再为每天穿什么烦恼</p>
-          </div>
+          <AnimatedSection>
+            <div className="text-center mb-10">
+              <h2 className="text-xl font-bold text-text-primary">三步搞定每日穿搭</h2>
+              <p className="text-sm text-text-muted mt-2">不再为每天穿什么烦恼</p>
+            </div>
+          </AnimatedSection>
 
-          <div className="space-y-6">
+          <div className="space-y-0">
             {[
               {
                 step: "01",
@@ -118,17 +147,28 @@ export default function Home() {
                 color: "from-primary/20 to-primary/5",
               },
             ].map((item, i) => (
-              <div key={i} className="flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shrink-0`}>
-                  <span className="text-xl">{item.icon}</span>
-                </div>
-                <div className="flex-1 pt-0.5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold text-primary tracking-wider">{item.step}</span>
-                    <h3 className="text-sm font-semibold text-text-primary">{item.title}</h3>
+              <div key={i}>
+                <AnimatedSection delay={i * 150}>
+                  <div className="flex items-start gap-4 pb-6">
+                    <div className="relative flex flex-col items-center">
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shrink-0 shadow-sm`}>
+                        <span className="text-xl">{item.icon}</span>
+                      </div>
+                      {/* 步骤之间的虚线连接 */}
+                      {i < 2 && (
+                        <div className="mt-1 w-0.5 h-6 border-l-2 border-dashed border-border/60" />
+                      )}
+                    </div>
+                    <div className="flex-1 pt-1.5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold text-primary tracking-wider">{item.step}</span>
+                        <h3 className="text-sm font-semibold text-text-primary">{item.title}</h3>
+                      </div>
+                      <p className="text-xs text-text-secondary leading-relaxed">{item.desc}</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-text-secondary leading-relaxed">{item.desc}</p>
-                </div>
+                </AnimatedSection>
+                {/* 最后一项下方不留连接线，使用 pb-0 替代 */}
               </div>
             ))}
           </div>
@@ -138,10 +178,12 @@ export default function Home() {
       {/* ============ 风格展示 ============ */}
       <section className="px-6 py-14">
         <div className="max-w-sm mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-xl font-bold text-text-primary">你的风格，我们都有</h2>
-            <p className="text-sm text-text-muted mt-2">8大风格 DNA，覆盖日常所有场景</p>
-          </div>
+          <AnimatedSection>
+            <div className="text-center mb-8">
+              <h2 className="text-xl font-bold text-text-primary">你的风格，我们都有</h2>
+              <p className="text-sm text-text-muted mt-2">8大风格 DNA，覆盖日常所有场景</p>
+            </div>
+          </AnimatedSection>
 
           <div className="grid grid-cols-4 gap-3">
             {[
@@ -153,13 +195,15 @@ export default function Home() {
               { emoji: "🔥", name: "欧美街头" },
               { emoji: "📷", name: "复古文艺" },
               { emoji: "✨", name: "优雅气质" },
-            ].map((style) => (
+            ].map((style, i) => (
               <div
                 key={style.name}
                 className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white/70 border border-border/50
-                           hover:border-primary/30 hover:shadow-sm transition-all duration-200"
+                           hover:border-primary/30 hover:shadow-sm hover:scale-[1.03] transition-all duration-200
+                           animate-fade-up"
+                style={{ animationDelay: `${(i % 4) * 80 + Math.floor(i / 4) * 120}ms` }}
               >
-                <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-lg">
+                <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-lg group-hover:scale-110">
                   {style.emoji}
                 </div>
                 <span className="text-[10px] text-text-secondary font-medium text-center leading-tight">
@@ -174,9 +218,11 @@ export default function Home() {
       {/* ============ 为什么选我们 ============ */}
       <section className="px-6 py-14 bg-white">
         <div className="max-w-sm mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-xl font-bold text-text-primary">为什么选衣搭</h2>
-          </div>
+          <AnimatedSection>
+            <div className="text-center mb-8">
+              <h2 className="text-xl font-bold text-text-primary">为什么选衣搭</h2>
+            </div>
+          </AnimatedSection>
 
           <div className="grid gap-3">
             {[
@@ -195,45 +241,48 @@ export default function Home() {
                 title: "小红书友好",
                 desc: "一键复制精美穿搭文案，带水印分享，轻松获得点赞",
               },
-            ].map((feature) => (
-              <div
-                key={feature.title}
-                className="flex items-start gap-3 p-4 rounded-xl bg-warm border border-border/50"
-              >
-                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-lg shrink-0">
-                  {feature.icon}
+            ].map((feature, i) => (
+              <AnimatedSection key={feature.title} delay={i * 150}>
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-warm border border-border/50 relative overflow-hidden">
+                  {/* 左边渐变装饰条 */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-primary to-primary-light rounded-l-xl" />
+                  <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-lg shrink-0 ml-1">
+                    {feature.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-text-primary mb-0.5">{feature.title}</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed">{feature.desc}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-text-primary mb-0.5">{feature.title}</h3>
-                  <p className="text-xs text-text-secondary leading-relaxed">{feature.desc}</p>
-                </div>
-              </div>
+              </AnimatedSection>
             ))}
           </div>
         </div>
       </section>
 
       {/* ============ 最终CTA ============ */}
-      <section className="px-6 py-16 text-center">
-        <div className="max-w-sm mx-auto space-y-5">
-          <div className="text-4xl">👗</div>
-          <h2 className="text-xl font-bold text-text-primary">
-            准备好改变你的衣柜了吗？
-          </h2>
-          <p className="text-sm text-text-secondary">
-            每天3套免费搭配，让AI成为你的私人穿搭顾问
-          </p>
-          <Link
-            href="/generate"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-primary to-primary-light
-                       text-white px-10 py-4 rounded-full font-semibold text-base
-                       hover:shadow-lg hover:shadow-primary/30 transition-all duration-300
-                       active:scale-[0.97] shadow-md shadow-primary/20"
-          >
-            ✨ 开始免费搭配
-          </Link>
-        </div>
-      </section>
+      <AnimatedSection>
+        <section className="px-6 py-16 text-center">
+          <div className="max-w-sm mx-auto space-y-5">
+            <div className="text-4xl">👗</div>
+            <h2 className="text-xl font-bold text-text-primary">
+              准备好改变你的衣柜了吗？
+            </h2>
+            <p className="text-sm text-text-secondary">
+              每天3套免费搭配，让AI成为你的私人穿搭顾问
+            </p>
+            <Link
+              href="/generate"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-primary to-primary-light
+                         text-white px-10 py-4 rounded-full font-semibold text-base
+                         hover:shadow-lg hover:shadow-primary/30 hover:shadow-xl hover:shadow-primary/25
+                         transition-all duration-300 active:scale-[0.97] shadow-md shadow-primary/20"
+            >
+              ✨ 开始免费搭配
+            </Link>
+          </div>
+        </section>
+      </AnimatedSection>
 
       {/* ============ 反馈建议 ============ */}
       <section className="px-6 py-6">
@@ -244,7 +293,7 @@ export default function Home() {
 
       {/* ============ Footer ============ */}
       <footer className="text-center py-8 px-6">
-        <div className="max-w-sm mx-auto space-y-3">
+        <div className="max-w-sm mx-auto space-y-3 animate-fade-in">
           <div className="flex items-center justify-center gap-4">
             <span className="text-xs text-text-muted">衣搭 · AI穿搭助手</span>
             <span className="w-px h-3 bg-border" />

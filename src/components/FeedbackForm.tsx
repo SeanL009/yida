@@ -20,7 +20,6 @@ export default function FeedbackForm() {
       return;
     }
 
-    // 简单防抖：5秒内不能重复提交
     if (cooldownRef.current) return;
     cooldownRef.current = true;
     setTimeout(() => { cooldownRef.current = false; }, 5000);
@@ -49,9 +48,13 @@ export default function FeedbackForm() {
     }
   };
 
+  const charCount = message.length;
+  const countColor =
+    charCount > 480 ? "text-red-400" : charCount > 380 ? "text-orange-400" : "text-text-muted/70";
+
   return (
     <div className="border-t border-border/40 pt-8 mt-8">
-      <div className="bg-card-bg rounded-2xl border border-border p-5">
+      <div className="bg-card-bg rounded-2xl border border-border p-5 animate-fade-up">
         {/* 标题 */}
         <div className="flex items-center gap-2 mb-3">
           <span className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-base">💡</span>
@@ -63,7 +66,7 @@ export default function FeedbackForm() {
 
         {/* 成功状态 */}
         {status === "success" ? (
-          <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
+          <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center animate-scale-up">
             <p className="text-green-600 text-sm font-medium">感谢你的建议！我们会认真阅读 ❤️</p>
             <button
               onClick={() => setStatus("idle")}
@@ -87,7 +90,7 @@ export default function FeedbackForm() {
               disabled={status === "sending"}
               className="w-full resize-none rounded-xl border border-border bg-white p-3 text-sm
                          text-text-primary placeholder:text-text-muted/60 outline-none
-                         focus:border-primary/40 focus:ring-2 focus:ring-primary/10
+                         focus:border-primary/40 focus:ring-2 focus:ring-primary/10 focus:scale-[1.01]
                          disabled:opacity-50 transition-all"
             />
 
@@ -106,8 +109,8 @@ export default function FeedbackForm() {
 
             {/* 底部：字数 + 提交按钮 */}
             <div className="flex items-center justify-between mt-2.5">
-              <span className="text-[10px] text-text-muted/70">
-                {message.length}/500
+              <span className={`text-[10px] transition-colors ${countColor}`}>
+                {charCount}/500
               </span>
               <button
                 onClick={handleSubmit}
@@ -122,7 +125,7 @@ export default function FeedbackForm() {
 
             {/* 错误提示 */}
             {errorText && (
-              <p className="mt-2 text-xs text-red-400">{errorText}</p>
+              <p className="mt-2 text-xs text-red-400 animate-fade-in">{errorText}</p>
             )}
           </>
         )}

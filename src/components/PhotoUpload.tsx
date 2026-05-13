@@ -7,45 +7,33 @@ interface PhotoUploadProps {
   disabled?: boolean;
 }
 
-/** 女性身形参考图 SVG（修身衣物，带简单五官） */
+/** 女性身形参考图 SVG */
 function PoseGuide() {
   return (
-    <svg viewBox="0 0 100 200" className="w-20 h-40" fill="none">
-      {/* 头 - 简单五官 */}
+    <svg viewBox="0 0 100 200" className="w-20 h-40 animate-float" style={{ animationDuration: "3s" }} fill="none">
+      {/* 头 */}
       <circle cx="50" cy="18" r="12" className="stroke-primary-dark" strokeWidth="1.5" fill="#fdf0f3" />
-      {/* 眼睛 */}
       <circle cx="46" cy="17" r="1.2" className="fill-text-primary" />
       <circle cx="54" cy="17" r="1.2" className="fill-text-primary" />
-      {/* 眉毛 */}
       <path d="M44 14.5 Q46 13.5 48 14.5" className="stroke-text-primary" strokeWidth="0.8" strokeLinecap="round" />
       <path d="M52 14.5 Q54 13.5 56 14.5" className="stroke-text-primary" strokeWidth="0.8" strokeLinecap="round" />
-      {/* 鼻子 */}
       <path d="M50 19 L50 21" className="stroke-text-muted" strokeWidth="0.8" strokeLinecap="round" />
-      {/* 嘴巴 */}
       <path d="M47 23 Q50 24.5 53 23" className="stroke-text-primary" strokeWidth="0.8" strokeLinecap="round" fill="none" />
-      {/* 脖子 */}
       <line x1="50" y1="30" x2="50" y2="36" className="stroke-primary-dark" strokeWidth="1.5" />
-      {/* 上身 - 修身衣物 */}
       <path d="M34 36 Q34 32 38 36 L40 58 L44 74 L56 74 L60 58 L62 36 Q66 32 66 36 L62 40 Q62 56 58 68 Q54 78 50 78 Q46 78 42 68 Q38 56 38 40 Z"
             className="fill-secondary stroke-primary-dark" strokeWidth="1.2" />
-      {/* 手臂 - 自然垂放 */}
       <path d="M36 44 L24 72 L26 76 L38 56" className="stroke-primary-dark" strokeWidth="1.5" strokeLinecap="round" />
       <path d="M64 44 L76 72 L74 76 L62 56" className="stroke-primary-dark" strokeWidth="1.5" strokeLinecap="round" />
-      {/* 下身 - 修身裤 */}
       <path d="M44 78 L42 120 Q42 122 44 122 L56 122 Q58 122 58 120 L56 78"
             className="fill-tag-bg stroke-primary-dark" strokeWidth="1.2" />
-      {/* 腿 */}
       <line x1="45" y1="122" x2="41" y2="180" className="stroke-primary-dark" strokeWidth="2" strokeLinecap="round" />
       <line x1="55" y1="122" x2="59" y2="180" className="stroke-primary-dark" strokeWidth="2" strokeLinecap="round" />
-      {/* 脚 */}
       <line x1="35" y1="180" x2="47" y2="180" className="stroke-primary-dark" strokeWidth="2" strokeLinecap="round" />
       <line x1="53" y1="180" x2="65" y2="180" className="stroke-primary-dark" strokeWidth="2" strokeLinecap="round" />
-      {/* 比例标注箭头 */}
       <line x1="14" y1="36" x2="14" y2="78" className="stroke-text-muted" strokeWidth="0.8" strokeDasharray="2 2" />
       <text x="8" y="60" fontSize="5" className="fill-text-muted">上身</text>
       <line x1="14" y1="78" x2="14" y2="180" className="stroke-text-muted" strokeWidth="0.8" strokeDasharray="2 2" />
       <text x="8" y="132" fontSize="5" className="fill-text-muted">腿长</text>
-      {/* 肩宽标注 */}
       <line x1="24" y1="10" x2="34" y2="10" className="stroke-text-muted" strokeWidth="0.8" strokeDasharray="2 2" />
       <line x1="66" y1="10" x2="76" y2="10" className="stroke-text-muted" strokeWidth="0.8" strokeDasharray="2 2" />
       <text x="38" y="10" fontSize="4" className="fill-text-muted">肩宽</text>
@@ -59,14 +47,20 @@ export default function PhotoUpload({
 }: PhotoUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [error, setError] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
-    if (!file.type.startsWith("image/")) return;
+    setError("");
 
-    // 限制文件大小（最大 5MB）
+    if (!file.type.startsWith("image/")) {
+      setError("请选择图片格式的文件（JPG / PNG）");
+      return;
+    }
+
     if (file.size > 5 * 1024 * 1024) {
-      alert("图片太大，请选择 5MB 以内的照片");
+      setError("图片太大，请选择 5MB 以内的照片");
       return;
     }
 
@@ -76,15 +70,24 @@ export default function PhotoUpload({
     reader.onload = (e) => {
       const result = e.target?.result as string;
       setPreview(result);
-
-      // 传给父组件完整的 data URL（含正确 MIME 类型）
       onImageReady(result, file);
     };
     reader.readAsDataURL(file);
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
   };
@@ -96,21 +99,26 @@ export default function PhotoUpload({
 
   return (
     <div className="w-full space-y-4">
+      {/* 上传错误提示 */}
+      {error && (
+        <div className="bg-red-50 text-red-500 text-xs p-2.5 rounded-xl animate-fade-in">
+          {error}
+        </div>
+      )}
+
       {!preview && (
-        /* 拍照指南卡片 */
-        <div className="bg-card-bg rounded-2xl border border-border p-4">
+        /* 拍照指南 */
+        <div className="bg-card-bg rounded-2xl border border-border p-4 animate-fade-in">
           <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
             <span>📸</span> 拍照指南
           </h3>
           <div className="flex items-start gap-4">
-            {/* 参考图 */}
             <div className="shrink-0 flex flex-col items-center gap-1">
               <div className="bg-secondary/50 rounded-xl p-2">
                 <PoseGuide />
               </div>
               <span className="text-[10px] text-text-muted">参考姿势</span>
             </div>
-            {/* 文字提示 */}
             <div className="flex-1 space-y-2.5 pt-1">
               <div className="flex items-start gap-2">
                 <span className="text-base leading-none mt-0.5">①</span>
@@ -130,7 +138,7 @@ export default function PhotoUpload({
                 <span className="text-base leading-none mt-0.5">③</span>
                 <div>
                   <p className="text-xs font-medium text-text-primary">露出脸部，AI识别脸型风格</p>
-                  <p className="text-[10px] text-text-muted">正面清晰即可，AI会根据脸型推荐适合的领型和风格</p>
+                  <p className="text-[10px] text-text-muted">正面清晰即可</p>
                 </div>
               </div>
             </div>
@@ -141,15 +149,21 @@ export default function PhotoUpload({
       {!preview ? (
         <div
           onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
           onClick={() => inputRef.current?.click()}
-          className="border-2 border-dashed border-border rounded-2xl p-8 text-center cursor-pointer
-                     hover:border-primary hover:bg-secondary/30 transition-all duration-200"
+          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer
+            transition-all duration-200
+            ${isDragging
+              ? "border-primary bg-primary/5 shadow-inner scale-[1.01]"
+              : "border-border hover:border-primary hover:bg-secondary/30"
+            }`}
         >
           <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-200
+              ${isDragging ? "bg-primary/10" : "bg-secondary"}`}>
               <svg
-                className="w-8 h-8 text-primary"
+                className={`w-8 h-8 transition-colors duration-200 ${isDragging ? "text-primary" : "text-primary"}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -163,7 +177,9 @@ export default function PhotoUpload({
               </svg>
             </div>
             <div>
-              <p className="text-text-primary font-medium">点击或拖拽上传照片</p>
+              <p className="text-text-primary font-medium">
+                {isDragging ? "松手以上传照片" : "点击或拖拽上传照片"}
+              </p>
               <p className="text-text-muted text-sm mt-1">
                 按照上方指南拍一张照片，AI 帮你精准搭配
               </p>
@@ -182,25 +198,43 @@ export default function PhotoUpload({
           />
         </div>
       ) : (
-        <div className="relative rounded-2xl overflow-hidden bg-white shadow-sm border border-border">
+        <div className="relative rounded-2xl overflow-hidden bg-white shadow-sm border border-border animate-scale-up">
           <img
             src={preview}
             alt="上传的照片"
             className="w-full max-h-80 object-contain"
           />
+
+          {/* "已上传" 徽章 */}
+          <div className="absolute top-3 left-3 bg-green-500/80 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-sm">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+            已上传
+          </div>
+
           <button
             onClick={() => {
               setPreview(null);
               setFileName("");
+              setError("");
             }}
             disabled={disabled}
-            className="absolute top-3 right-3 w-8 h-8 bg-black/50 text-white rounded-full
-                       flex items-center justify-center hover:bg-black/70 transition-colors"
+            className="absolute top-3 right-3 w-7 h-7 bg-black/40 text-white rounded-full
+                       flex items-center justify-center hover:bg-black/60 transition-all
+                       text-xs backdrop-blur-sm"
           >
             ✕
           </button>
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-3">
-            <span className="text-white text-sm">{fileName}</span>
+
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent p-3 pt-6">
+            <div className="flex items-center gap-2">
+              <svg className="w-3.5 h-3.5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-white text-xs font-medium truncate">{fileName}</span>
+            </div>
           </div>
         </div>
       )}
