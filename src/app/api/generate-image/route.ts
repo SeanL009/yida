@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildOutfitPrompt, buildOutfitI2IPrompt, generateOutfitImage, IMAGE_MODEL_PLUS } from "@/lib/openai-image";
+import { buildOutfitPrompt, buildOutfitI2IPrompt, generateOutfitImage } from "@/lib/openai-image";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
       ? buildOutfitI2IPrompt(analysis, style || "", occasion || "", items)
       : buildOutfitPrompt(analysis, style || "", occasion || "", items);
 
-    // 使用 plus 版（¥0.20/张，专业级细节）
-    const result = await generateOutfitImage(apiKey, prompt, userImage || undefined, IMAGE_MODEL_PLUS);
+    // 有照片时自动使用 wan2.5-i2i-preview 图生图编辑（主体一致性保持），无照片时使用 plus 文生图
+    const result = await generateOutfitImage(apiKey, prompt, userImage || undefined);
 
     return NextResponse.json({
       success: true,

@@ -1,9 +1,14 @@
 import type { AnalysisResult } from "./types";
 
 /** 通义万相可用模型 */
-export const IMAGE_MODEL_PLUS = "wanx2.1-t2i-plus";   // ¥0.20/张 文生图专业版
-export const IMAGE_MODEL_TURBO = "wanx2.1-t2i-turbo"; // ¥0.14/张 文生图极速版
-export const IMAGE_MODEL_I2I = "wanx-v1";              // ¥0.16/张 图生图（支持参考图）
+export const IMAGE_MODEL_PLUS = "wanx2.1-t2i-plus";    // ¥0.20/张 文生图专业版
+export const IMAGE_MODEL_TURBO = "wanx2.1-t2i-turbo";  // ¥0.14/张 文生图极速版
+export const IMAGE_MODEL_I2I_V2 = "wan2.5-i2i-preview"; // 图生图编辑 — 主体一致性保持（2025.09）
+
+/** 文生图 endpoint */
+const T2I_ENDPOINT = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis";
+/** 图生图 endpoint（通用图像编辑） */
+const I2I_ENDPOINT = "https://dashscope.aliyuncs.com/api/v1/services/aigc/image2image/image-synthesis";
 
 interface ImageGenResult {
   url: string;
@@ -45,8 +50,8 @@ ${itemsDesc}
 }
 
 /**
- * 构造图生图提示词 — 基于用户照片换装
- * 保持人物面部/发型/体型不变，只更换衣物
+ * 构造图生图编辑提示词 — 基于用户照片换装
+ * 配合 wan2.5-i2i-preview（主体一致性保持），只需描述衣服更换内容
  */
 export function buildOutfitI2IPrompt(
   analysis: AnalysisResult,
@@ -61,7 +66,7 @@ export function buildOutfitI2IPrompt(
     })
     .join("\n");
 
-  return `保持人物的面部特征、发型、体型和肤色完全不变，仅将衣服更换为以下全套搭配：
+  return `将照片中人物的衣服更换为以下全套搭配：
 
 ${itemsDesc}
 
@@ -69,17 +74,16 @@ ${itemsDesc}
 场合：${occasion}
 
 要求：
-- 人物面部、发型必须与原图一致
+- 只改变衣服，人物面部、发型、体型、肤色、背景全部保持不变
 - 衣服的颜色、款式准确还原
-- 全身展示，自然站姿
-- 写实风格，真实参考级穿搭展示
-- 不要改变背景、光线和人物姿态`;
+- 全身展示
+- 写实风格`;
 }
 
 /**
  * 调用通义万相 API 生成穿搭照片
- * 如果传了 userImage，使用图生图模式（保持人物特征换装）
- * 否则使用文生图模式（根据文本描述生成）
+ * 如果传了 userImage，使用 wan2.5-i2i-preview 图生图编辑（保持人物特征换装）
+ * 否则使用 wanx2.1-t2i-plus 文生图（根据文本描述生成）
  */
 export async function generateOutfitImage(
   apiKey: string,
@@ -87,30 +91,35 @@ export async function generateOutfitImage(
   userImage?: string,       // data URL of user's photo
   model?: string            // override model
 ): Promise<ImageGenResult> {
-  const actualModel = model || (userImage ? IMAGE_MODEL_I2I : IMAGE_MODEL_PLUS);
+  const isI2I = !!userImage;
+  const actualModel = model || (isI2I ? IMAGE_MODEL_I2I_V2 : IMAGE_MODEL_PLUS);
+  const endpoint = isI2I ? I2I_ENDPOINT : T2I_ENDPOINT;
 
-  const input: Record<string, string> = { prompt };
-  if (userImage) {
-    input.image = userImage;
+  // 构造请求体
+  const input: Record<string, unknown> = { prompt };
+  const parameters: Record<string, unknown> = isI2I
+    ? { prompt_extend: true, n: 1 }
+    : { size: "1024*1024", n: 1 };
+
+  if (isI2I) {
+    // wan2.5-i2i-preview：图片以数组形式传入
+    input.images = [userImage];
   }
 
   // 1. 提交异步任务
-  const submitResp = await fetch(
-    "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "X-DashScope-Async": "enable",
-      },
-      body: JSON.stringify({
-        model: actualModel,
-        input,
-        parameters: { size: "1024*1024", n: 1 },
-      }),
-    }
-  );
+  const submitResp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "X-DashScope-Async": "enable",
+    },
+    body: JSON.stringify({
+      model: actualModel,
+      input,
+      parameters,
+    }),
+  });
 
   if (!submitResp.ok) {
     const err = await submitResp.json().catch(() => ({}));
@@ -143,14 +152,20 @@ export async function generateOutfitImage(
     const status = pollData.output?.task_status;
 
     if (status === "SUCCEEDED") {
-      const results = pollData.output?.results || [];
-      if (results.length === 0) {
-        throw new Error("生成成功但未返回图片");
+      // 不同模型返回格式不同：results[].url 或 image_url
+      const results = pollData.output?.results;
+      const imageUrl = pollData.output?.image_url;
+
+      if (results && results.length > 0 && results[0].url) {
+        return {
+          url: results[0].url,
+          actualPrompt: results[0].actual_prompt || prompt,
+        };
       }
-      return {
-        url: results[0].url,
-        actualPrompt: results[0].actual_prompt || prompt,
-      };
+      if (imageUrl) {
+        return { url: imageUrl, actualPrompt: prompt };
+      }
+      throw new Error("生成成功但未返回图片");
     }
 
     if (status === "FAILED") {
