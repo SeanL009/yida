@@ -78,7 +78,7 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
-            <p className="text-text-muted text-xs">无需注册 · 每日免费3次</p>
+            <p className="text-text-muted text-xs">无需注册 · 免费使用</p>
           </div>
 
           {/* 浮动的预览卡片 */}
@@ -269,7 +269,7 @@ export default function Home() {
               准备好改变你的衣柜了吗？
             </h2>
             <p className="text-sm text-text-secondary">
-              每天3套免费搭配，让AI成为你的私人穿搭顾问
+              让AI成为你的私人穿搭顾问
             </p>
             <Link
               href="/generate"

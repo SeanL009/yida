@@ -6,13 +6,7 @@ import OutfitCard from "@/components/OutfitCard";
 import FeedbackForm from "@/components/FeedbackForm";
 import { STYLE_DNA, OCCASIONS, COLOR_SCHEMES } from "@/lib/types";
 import type { AnalysisResult, OutfitSuggestion } from "@/lib/types";
-import {
-  canGenerate,
-  recordGeneration,
-  getRemainingUses,
-  DAILY_LIMIT,
-} from "@/lib/dailyLimit";
-import Link from "next/link";
+import { recordGeneration } from "@/lib/dailyLimit";
 
 type Step = "upload" | "choose" | "generating" | "result";
 
@@ -25,8 +19,6 @@ export default function GeneratePage() {
   const [selectedColorScheme, setSelectedColorScheme] = useState<string>("随机搭配");
   const [outfits, setOutfits] = useState<OutfitSuggestion[]>([]);
   const [error, setError] = useState<string>("");
-  const [usedCount, setUsedCount] = useState(0);
-  const [limitReached, setLimitReached] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // 穿搭照片生成
@@ -37,11 +29,6 @@ export default function GeneratePage() {
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
   const [generatedImagePrompt, setGeneratedImagePrompt] = useState("");
   const [imageGenError, setImageGenError] = useState("");
-
-  useEffect(() => {
-    setUsedCount(DAILY_LIMIT - getRemainingUses());
-    setLimitReached(!canGenerate());
-  }, []);
 
   const handleImageReady = async (dataUrl: string) => {
     setImageDataUrl(dataUrl);
@@ -71,11 +58,7 @@ export default function GeneratePage() {
   const handleGenerate = async () => {
     if (!selectedStyle || !selectedOccasion) return;
 
-    const check = recordGeneration();
-    if (!check.allowed) {
-      setLimitReached(true);
-      return;
-    }
+    recordGeneration();
 
     setStep("generating");
     setError("");
@@ -95,7 +78,6 @@ export default function GeneratePage() {
       const data = await res.json();
       if (data.outfits && data.outfits.length > 0) {
         setOutfits(data.outfits);
-        setUsedCount((c) => c + 1);
         setStep("result");
       } else {
         setError(data.error || "生成失败");
@@ -111,12 +93,7 @@ export default function GeneratePage() {
   const handleRegenerate = async () => {
     if (isRegenerating) return;
 
-    const check = recordGeneration();
-    if (!check.allowed) {
-      setLimitReached(true);
-      return;
-    }
-
+    recordGeneration();
     setIsRegenerating(true);
     setError("");
 
@@ -136,7 +113,6 @@ export default function GeneratePage() {
       const data = await res.json();
       if (data.outfits && data.outfits.length > 0) {
         setOutfits(data.outfits);
-        setUsedCount((c) => c + 1);
       } else {
         setError(data.error || "生成失败");
       }
@@ -227,7 +203,6 @@ export default function GeneratePage() {
     setSelectedColorScheme("随机搭配");
     setOutfits([]);
     setError("");
-    setLimitReached(!canGenerate());
   };
 
   const stepMap: Step[] = ["upload", "choose", "result"];
@@ -480,31 +455,18 @@ export default function GeneratePage() {
               </div>
             </div>
 
-            {/* 生成按钮 / 已用完 */}
-            {limitReached ? (
-              <div className="bg-card-bg rounded-2xl border border-border p-5 text-center space-y-3">
-                <div className="text-3xl">😅</div>
-                <p className="text-text-primary font-semibold">今日免费次数已用完</p>
-                <p className="text-text-muted text-sm">
-                  每天免费 {DAILY_LIMIT} 次，明天再来吧
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <button
-                  onClick={handleGenerate}
-                  disabled={!selectedStyle || !selectedOccasion}
-                  className="w-full py-3.5 bg-gradient-to-r from-primary to-primary-light text-white
-                             rounded-xl font-semibold text-base disabled:opacity-40
-                             hover:opacity-90 transition-all active:scale-[0.98]"
-                >
-                  ✨ AI生成穿搭方案
-                </button>
-                <p className="text-center text-[11px] text-text-muted">
-                  今日剩余 {DAILY_LIMIT - usedCount} 次免费生成
-                </p>
-              </div>
-            )}
+            {/* 生成按钮 */}
+            <div className="space-y-2">
+              <button
+                onClick={handleGenerate}
+                disabled={!selectedStyle || !selectedOccasion}
+                className="w-full py-3.5 bg-gradient-to-r from-primary to-primary-light text-white
+                           rounded-xl font-semibold text-base disabled:opacity-40
+                           hover:opacity-90 transition-all active:scale-[0.98]"
+              >
+                ✨ AI生成穿搭方案
+              </button>
+            </div>
           </div>
         )}
 
@@ -553,14 +515,9 @@ export default function GeneratePage() {
         {/* Step 4: 结果 */}
         {step === "result" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-text-primary">
-                ✨ 你的穿搭方案
-              </h2>
-              <span className="text-xs text-text-muted bg-secondary px-2.5 py-1 rounded-full">
-                今日 {DAILY_LIMIT - usedCount}/{DAILY_LIMIT} 次剩余
-              </span>
-            </div>
+            <h2 className="text-lg font-bold text-text-primary mb-2">
+              ✨ 你的穿搭方案
+            </h2>
 
             {/* 单套穿搭卡片 */}
             {outfits.length > 0 && (
@@ -683,7 +640,7 @@ export default function GeneratePage() {
               <div className="flex gap-2.5">
                 <button
                   onClick={handleRegenerate}
-                  disabled={isRegenerating || limitReached}
+                  disabled={isRegenerating}
                   className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-light text-white
                              rounded-xl text-sm font-semibold hover:opacity-90 transition-all
                              active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-1.5"
@@ -717,10 +674,6 @@ export default function GeneratePage() {
               </button>
             </div>
 
-            {/* 剩余次数提示 */}
-            <p className="text-center text-[11px] text-text-muted">
-              今日剩余 {DAILY_LIMIT - usedCount} 次
-            </p>
           </div>
         )}
       </div>
