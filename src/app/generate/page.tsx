@@ -242,6 +242,7 @@ export default function GeneratePage() {
           occasion: selectedOccasion,
           colorScheme: selectedColorScheme,
           items: outfits[0].items,
+          userImage: imageDataUrl,
         }),
       });
       const data = await res.json();

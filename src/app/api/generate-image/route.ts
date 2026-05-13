@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildOutfitPrompt, generateOutfitImage } from "@/lib/openai-image";
+import { buildOutfitPrompt, buildOutfitI2IPrompt, generateOutfitImage, IMAGE_MODEL_PLUS } from "@/lib/openai-image";
 
 export async function POST(request: NextRequest) {
   try {
-    const { analysis, style, occasion, colorScheme, items } = await request.json();
+    const { analysis, style, occasion, colorScheme, items, userImage } = await request.json();
 
     if (!analysis || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -20,12 +20,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 构造提示词
-    const prompt = buildOutfitPrompt(analysis, style || "", occasion || "", items);
+    // 构造提示词：有用户照片时使用图生图（保持人物特征），否则使用文生图
+    const prompt = userImage
+      ? buildOutfitI2IPrompt(analysis, style || "", occasion || "", items)
+      : buildOutfitPrompt(analysis, style || "", occasion || "", items);
 
-    // 使用 turbo 版（¥0.14/张，性价比高）
-    // 如需更高质量可改为 IMAGE_MODEL_PLUS（¥0.20/张）
-    const result = await generateOutfitImage(apiKey, prompt);
+    // 使用 plus 版（¥0.20/张，专业级细节）
+    const result = await generateOutfitImage(apiKey, prompt, userImage || undefined, IMAGE_MODEL_PLUS);
 
     return NextResponse.json({
       success: true,
