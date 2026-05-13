@@ -99,6 +99,12 @@ export default function GeneratePage() {
     setIsRegenerating(true);
     setError("");
 
+    // 清除之前生成的穿搭照片，让用户可以为新搭配重新生成
+    setGeneratedImageUrl("");
+    setGeneratedImagePrompt("");
+    setShowImagePayment(false);
+    setImageGenError("");
+
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
