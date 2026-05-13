@@ -204,6 +204,41 @@ export default function GeneratePage() {
     }
   };
 
+  /** 保存穿搭照片到本地 */
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveImage = async () => {
+    if (isSaving || !generatedImageUrl) return;
+    setIsSaving(true);
+
+    try {
+      // 先尝试 fetch 下载（跨域图片可能受限）
+      const response = await fetch(generatedImageUrl, {
+        mode: "cors",
+        cache: "no-cache",
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `yida-outfit-${Date.now()}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        // fallback：在新标签页打开，用户可手动保存
+        window.open(generatedImageUrl, "_blank");
+      }
+    } catch {
+      // fetch 失败时（如跨域限制）在新标签打开
+      window.open(generatedImageUrl, "_blank");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleReset = () => {
     setStep("upload");
     setImageDataUrl("");
@@ -584,19 +619,40 @@ export default function GeneratePage() {
                           📸 AI 穿搭照片
                         </div>
                       </div>
-                      <div className="p-3 flex items-center justify-between">
-                        <span className="text-[10px] text-text-muted">
-                          {generatedImagePrompt ? "AI 根据穿搭方案生成" : ""}
-                        </span>
-                        <a
-                          href={generatedImageUrl}
-                          download="yida-outfit.jpg"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-primary hover:text-primary-dark font-medium transition-colors"
-                        >
-                          保存图片 ↗
-                        </a>
+                      <div className="p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-text-muted">
+                            {generatedImagePrompt ? "AI 根据穿搭方案生成" : ""}
+                          </span>
+                          <button
+                            onClick={handleSaveImage}
+                            disabled={isSaving}
+                            className="flex items-center gap-1 text-xs text-white bg-primary hover:bg-primary-dark
+                                       px-3 py-1.5 rounded-lg font-medium transition-all active:scale-95
+                                       disabled:opacity-60"
+                          >
+                            {isSaving ? (
+                              <>
+                                <span className="relative w-3.5 h-3.5">
+                                  <span className="absolute inset-0 rounded-full border-2 border-white/30" />
+                                  <span className="absolute inset-0 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                                </span>
+                                保存中...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                保存图片
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-text-muted text-center">
+                          长按图片可保存到手机相册
+                        </p>
                       </div>
                     </div>
                   ) : isGeneratingImage ? (
