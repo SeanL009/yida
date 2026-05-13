@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
       notify_url: XUNHU_CONFIG.notifyUrl,
       nonce_str: nonceStr,
       // 用户支付后跳转回生成页
-      return_url: "https://yida.sean.my/generate",
-      callback_url: "https://yida.sean.my/generate",
+      return_url: "https://jiulant.cn/generate",
+      callback_url: "https://jiulant.cn/generate",
       attach: tradeOrderId,
     };
 
