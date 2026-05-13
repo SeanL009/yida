@@ -74,7 +74,8 @@ export async function generateOutfits(
   style: string,
   occasion: string,
   colorScheme: string = "随机搭配",
-  count: number = 3
+  count: number = 1,
+  variation: boolean = false
 ): Promise<OutfitSuggestion[]> {
   const client = getDashScope();
 
@@ -89,6 +90,10 @@ export async function generateOutfits(
     ? "配色方案：根据风格和场合自动推荐最合适的配色"
     : `配色方向：${colorScheme}`;
 
+  const variationHint = variation
+    ? "\n- 注意：请生成一套与上次完全不同的搭配方案，更换不同的单品组合、颜色或款式"
+    : "";
+
   const response = await client.chat.completions.create({
     model: "qwen-turbo",
     messages: [
@@ -97,7 +102,7 @@ export async function generateOutfits(
         content: `你是一个专业的时尚穿搭顾问。根据用户的身体特征和需求，生成${count}套穿搭方案。
 
 重要规则：
-- 每套方案必须包含完整搭配：外套（如需）、上装、下装/裙子、鞋子、配饰
+- ${count === 1 ? "生成1套完整搭配" : "每套方案必须包含完整搭配"}：外套（如需）、上装、下装/裙子、鞋子、配饰
 - 单品要具体，包括颜色、材质、款式
 - 搭配要符合用户体型特点，扬长避短
 - ${styleDesc}
@@ -105,12 +110,13 @@ export async function generateOutfits(
 - ${colorDesc}
 - tips要实用，给出具体的穿搭技巧
 - 用中文返回
+- 方案标题控制在6字以内${variationHint}
 
 返回JSON格式（不要用markdown代码块包裹）：
 {
   "outfits": [
     {
-      "title": "方案名称（如'温柔知性风'）",
+      "title": "方案名称",
       "items": [
         { "category": "外套", "item": "米色长款风衣" },
         { "category": "上装", "item": "白色圆领真丝衬衫" },

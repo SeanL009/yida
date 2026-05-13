@@ -31,6 +31,7 @@ export default function GeneratePage() {
   const [isPro, setIsPro] = useState(false);
   const [proDaysLeft, setProDaysLeft] = useState(0);
   const [serverProVerified, setServerProVerified] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
     // 检查本地 Pro 状态
@@ -118,10 +119,11 @@ export default function GeneratePage() {
           style: selectedStyle,
           occasion: selectedOccasion,
           colorScheme: selectedColorScheme,
+          count: 1,
         }),
       });
       const data = await res.json();
-      if (data.outfits) {
+      if (data.outfits && data.outfits.length > 0) {
         setOutfits(data.outfits);
         setUsedCount((c) => c + 1);
         setStep("result");
@@ -132,6 +134,49 @@ export default function GeneratePage() {
     } catch {
       setError("网络错误，请重试");
       setStep("choose");
+    }
+  };
+
+  /** 更换一套穿搭：相同风格/场合/配色，重新生成一套不同的 */
+  const handleRegenerate = async () => {
+    if (isRegenerating) return;
+
+    // 非 Pro 用户需要消耗次数
+    if (!isPro) {
+      const check = recordGeneration();
+      if (!check.allowed) {
+        setLimitReached(true);
+        return;
+      }
+    }
+
+    setIsRegenerating(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis,
+          style: selectedStyle,
+          occasion: selectedOccasion,
+          colorScheme: selectedColorScheme,
+          count: 1,
+          variation: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.outfits && data.outfits.length > 0) {
+        setOutfits(data.outfits);
+        if (!isPro) setUsedCount((c) => c + 1);
+      } else {
+        setError(data.error || "生成失败");
+      }
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -474,30 +519,25 @@ export default function GeneratePage() {
               </p>
             </div>
 
-            {/* 骨架屏：预览3张卡片 */}
-            <div className="space-y-4 opacity-50">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="bg-card-bg rounded-2xl overflow-hidden shadow-sm border border-border"
-                >
-                  <div className="bg-gradient-to-r from-primary/60 to-primary-light/60 p-4">
-                    <div className="skeleton h-3 w-24 mx-auto" />
-                    <div className="skeleton h-4 w-32 mx-auto mt-2" />
-                  </div>
-                  <div className="p-4 space-y-3">
-                    {[1, 2, 3].map((j) => (
-                      <div key={j} className="flex items-center gap-3">
-                        <div className="skeleton w-9 h-9 rounded-xl shrink-0" />
-                        <div className="flex-1 space-y-1">
-                          <div className="skeleton h-2 w-12" />
-                          <div className="skeleton h-3 w-28" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* 骨架屏：预览1张卡片 */}
+            <div className="opacity-50">
+              <div className="bg-card-bg rounded-2xl overflow-hidden shadow-sm border border-border">
+                <div className="bg-gradient-to-r from-primary/60 to-primary-light/60 p-4">
+                  <div className="skeleton h-3 w-24 mx-auto" />
+                  <div className="skeleton h-4 w-32 mx-auto mt-2" />
                 </div>
-              ))}
+                <div className="p-4 space-y-3">
+                  {[1, 2, 3].map((j) => (
+                    <div key={j} className="flex items-center gap-3">
+                      <div className="skeleton w-9 h-9 rounded-xl shrink-0" />
+                      <div className="flex-1 space-y-1">
+                        <div className="skeleton h-2 w-12" />
+                        <div className="skeleton h-3 w-28" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -514,35 +554,61 @@ export default function GeneratePage() {
               </span>
             </div>
 
-            <div className="grid gap-4">
-              {outfits.map((outfit, idx) => (
-                <div
-                  key={outfit.id}
-                  className="animate-slide-up"
-                  style={{ animationDelay: `${idx * 150}ms` }}
-                >
-                  <OutfitCard outfit={outfit} />
-                </div>
-              ))}
-            </div>
+            {/* 单套穿搭卡片 */}
+            {outfits.length > 0 && (
+              <div className="animate-slide-up" key={outfits[0].id}>
+                <OutfitCard outfit={outfits[0]} />
+              </div>
+            )}
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => setStep("choose")}
-                className="flex-1 py-3 border border-border rounded-xl text-text-primary font-medium
-                           hover:bg-secondary transition-colors text-sm active:scale-[0.98]"
-              >
-                🔄 换一换风格
-              </button>
+            {/* 操作按钮组 */}
+            <div className="space-y-2.5">
+              <div className="flex gap-2.5">
+                <button
+                  onClick={handleRegenerate}
+                  disabled={isRegenerating || (limitReached && !isPro)}
+                  className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-light text-white
+                             rounded-xl text-sm font-semibold hover:opacity-90 transition-all
+                             active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-1.5"
+                >
+                  {isRegenerating ? (
+                    <>
+                      <span className="relative w-4 h-4">
+                        <span className="absolute inset-0 rounded-full border-2 border-white/30" />
+                        <span className="absolute inset-0 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      </span>
+                      生成中...
+                    </>
+                  ) : (
+                    <>🎲 换一套穿搭</>
+                  )}
+                </button>
+                <button
+                  onClick={() => setStep("choose")}
+                  className="flex-1 py-3 border border-border rounded-xl text-text-primary font-medium
+                             hover:bg-secondary transition-colors text-sm active:scale-[0.98]"
+                >
+                  🔄 换风格/场合
+                </button>
+              </div>
               <button
                 onClick={handleReset}
-                className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-light text-white
-                           rounded-xl font-medium hover:opacity-90 transition-opacity text-sm
-                           active:scale-[0.98]"
+                className="w-full py-2.5 border border-border/60 rounded-xl text-text-muted
+                           hover:text-text-primary hover:bg-secondary/50 transition-all text-xs"
               >
-                📸 重新上传
+                📸 重新上传照片
               </button>
             </div>
+
+            {/* 非 Pro 用户的剩余次数提示 */}
+            {!isPro && (
+              <p className="text-center text-[11px] text-text-muted">
+                今日剩余 {DAILY_LIMIT - usedCount} 次
+                <Link href="/pro" className="text-primary hover:text-primary-dark ml-1">
+                  升级 Pro 享无限次更换
+                </Link>
+              </p>
+            )}
           </div>
         )}
       </div>
