@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import PhotoUpload from "@/components/PhotoUpload";
 import OutfitCard from "@/components/OutfitCard";
 import FeedbackForm from "@/components/FeedbackForm";
@@ -30,15 +30,7 @@ export default function GeneratePage() {
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
   const [generatedImagePrompt, setGeneratedImagePrompt] = useState("");
   const [imageGenError, setImageGenError] = useState("");
-  // 支付
-  const [paymentOrderId, setPaymentOrderId] = useState("");
-  const [paymentQrCode, setPaymentQrCode] = useState("");
-  const [paymentCashierUrl, setPaymentCashierUrl] = useState("");
-  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
-  const [isPollingPayment, setIsPollingPayment] = useState(false);
-  const [showActivationCode, setShowActivationCode] = useState(false);
-  const [isPaid, setIsPaid] = useState(false);
-  const paymentIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isActivated, setIsActivated] = useState(false);
 
   const handleImageReady = async (dataUrl: string) => {
     setImageDataUrl(dataUrl);
@@ -113,15 +105,6 @@ export default function GeneratePage() {
     setGeneratedImagePrompt("");
     setShowImagePayment(false);
     setImageGenError("");
-    // 清除支付轮询（已有订单的不清除已支付状态）
-    if (paymentIntervalRef.current) {
-      clearInterval(paymentIntervalRef.current);
-      paymentIntervalRef.current = null;
-    }
-    setIsPollingPayment(false);
-    setPaymentQrCode("");
-    setPaymentOrderId("");
-    setPaymentCashierUrl("");
 
     try {
       const res = await fetch("/api/generate", {
@@ -176,78 +159,16 @@ export default function GeneratePage() {
         return;
       }
 
-      // 激活成功 → 开始生成
+      // 激活成功 → 标记已激活，开始生成
+      setIsActivated(true);
+      setShowImagePayment(false);
       await doGenerateImage();
     } catch {
       setImageGenError("验证失败，请稍后重试");
+    } finally {
       setIsImageActivating(false);
     }
   };
-
-  /** 创建 PayJS 支付订单并开始轮询 */
-  const handleCreatePayment = async () => {
-    if (isCreatingPayment) return;
-    setIsCreatingPayment(true);
-    setImageGenError("");
-
-    try {
-      const res = await fetch("/api/payment/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "衣搭 - AI穿搭照片" }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setImageGenError(data.error || "创建支付订单失败");
-        setIsCreatingPayment(false);
-        return;
-      }
-
-      setPaymentOrderId(data.orderId);
-      // PayJS 返回 base64 二维码图片
-      setPaymentQrCode(data.qrcode ? `data:image/png;base64,${data.qrcode}` : data.codeUrl);
-      setPaymentCashierUrl(data.cashierUrl || "");
-      setIsCreatingPayment(false);
-      setIsPollingPayment(true);
-
-      // 开始轮询支付状态（每 2 秒）
-      paymentIntervalRef.current = setInterval(async () => {
-        try {
-          const statusRes = await fetch(
-            `/api/payment/status?order_id=${data.orderId}`
-          );
-          const statusData = await statusRes.json();
-
-          if (statusData.paid) {
-            if (paymentIntervalRef.current) {
-              clearInterval(paymentIntervalRef.current);
-              paymentIntervalRef.current = null;
-            }
-            setIsPollingPayment(false);
-            setIsPaid(true);
-            setShowImagePayment(false);
-            // 支付成功，自动生成照片
-            await doGenerateImage();
-          }
-        } catch {
-          // 轮询失败不处理，下一次继续
-        }
-      }, 2000);
-    } catch {
-      setImageGenError("网络错误，请稍后重试");
-      setIsCreatingPayment(false);
-    }
-  };
-
-  /** 组件卸载时清理轮询 */
-  useEffect(() => {
-    return () => {
-      if (paymentIntervalRef.current) {
-        clearInterval(paymentIntervalRef.current);
-      }
-    };
-  }, []);
 
   /** 直接生成穿搭照片（已付费/已激活后调用） */
   const doGenerateImage = async () => {
@@ -750,189 +671,83 @@ export default function GeneratePage() {
                       <p className="text-[11px] text-text-muted mt-1">大约需要 10-15 秒</p>
                     </div>
                   ) : showImagePayment ? (
-                    /* 支付 / 激活 */
+                    /* 支付 / 激活 — 展示个人微信收款码 + 激活码输入 */
                     <div className="bg-card-bg rounded-2xl border border-border p-4 animate-fade-in">
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-4">
                         <span className="text-lg">📸</span>
                         <span className="text-sm font-semibold text-text-primary">生成穿搭照片</span>
                         <span className="text-xs bg-gradient-to-r from-primary to-primary-light text-white px-2 py-0.5 rounded-full font-medium">¥0.99</span>
                       </div>
 
-                      {paymentQrCode ? (
-                        /* 已创建订单：展示收款码 */
-                        <div className="space-y-3">
-                          <div className="flex justify-center">
-                            <img
-                              src={paymentQrCode}
-                              alt="微信收款码"
-                              className="w-48 h-48 object-contain rounded-xl border border-border"
-                            />
-                          </div>
-                          <p className="text-sm text-text-primary font-medium text-center">
-                            微信扫码支付
-                          </p>
-                          {paymentCashierUrl && (
-                            <a
-                              href={paymentCashierUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block w-full py-2.5 bg-[#07C160] text-white rounded-xl
-                                         text-sm font-semibold text-center hover:opacity-90
-                                         transition-all active:scale-[0.98]"
-                            >
-                              微信内直接支付 ↗
-                            </a>
-                          )}
-                          <p className="text-xs text-text-muted text-center">
-                            截图保存二维码 → 微信扫一扫 → 从相册选择
-                          </p>
-                          {isPollingPayment ? (
-                            <div className="flex items-center justify-center gap-2 text-sm text-text-muted">
-                              <span className="relative w-4 h-4">
-                                <span className="absolute inset-0 rounded-full border-2 border-secondary" />
-                                <span className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                              </span>
-                              等待支付中...
-                            </div>
-                          ) : (
-                            <p className="text-xs text-green-500 text-center font-medium">✅ 支付成功</p>
-                          )}
-                          {imageGenError && (
-                            <p className="text-xs text-red-400 text-center animate-fade-in">{imageGenError}</p>
-                          )}
-                          <button
-                            onClick={() => {
-                              setShowImagePayment(false);
-                              setPaymentQrCode("");
-                              setPaymentOrderId("");
-                              if (paymentIntervalRef.current) {
-                                clearInterval(paymentIntervalRef.current);
-                                paymentIntervalRef.current = null;
-                              }
-                              setIsPollingPayment(false);
+                      {/* 个人微信收款码 */}
+                      <div className="flex justify-center mb-3">
+                        <img
+                          src="/wechat-qr.png"
+                          alt="微信收款码"
+                          className="w-48 h-48 object-contain rounded-xl border border-border"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = "none";
+                            const fallback = target.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                        <div className="hidden w-48 h-48 rounded-xl border border-dashed border-border bg-secondary/50 flex-col items-center justify-center text-center p-4">
+                          <span className="text-2xl mb-1">📱</span>
+                          <p className="text-xs text-text-muted">请替换为你的微信收款码</p>
+                          <p className="text-[10px] text-text-muted/60 mt-1">保存为 public/wechat-qr.png</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-text-primary font-medium text-center mb-1">
+                        微信扫码支付 ¥0.99
+                      </p>
+                      <p className="text-xs text-text-muted text-center mb-4">
+                        支付后输入激活码 <span className="font-bold text-primary">1314</span> 即可生成
+                      </p>
+
+                      {/* 激活码输入 */}
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            value={imageGenCode}
+                            onChange={(e) => {
+                              setImageGenCode(e.target.value);
+                              if (imageGenError) setImageGenError("");
                             }}
-                            className="w-full py-2 border border-border rounded-xl text-xs text-text-muted
-                                       hover:text-text-primary transition-colors"
+                            placeholder="输入激活码 1314"
+                            maxLength={32}
+                            disabled={isImageActivating}
+                            className="flex-1 rounded-xl border border-border bg-white p-2.5 text-sm
+                                       text-text-primary placeholder:text-text-muted/60 outline-none text-center
+                                       focus:border-primary/40 focus:ring-2 focus:ring-primary/10
+                                       disabled:opacity-50 transition-all"
+                          />
+                          <button
+                            onClick={handleActivateAndGenerateImage}
+                            disabled={isImageActivating || !imageGenCode.trim()}
+                            className="px-5 py-2.5 bg-gradient-to-r from-primary to-primary-light text-white
+                                       rounded-xl text-sm font-semibold disabled:opacity-40
+                                       hover:opacity-90 transition-all active:scale-[0.98]"
                           >
-                            取消
+                            {isImageActivating ? "验证中..." : "验证并生成"}
                           </button>
-
-                          {/* 激活码入口（折叠，管理员用） */}
-                          <div className="pt-1">
-                            <button
-                              onClick={() => setShowActivationCode(!showActivationCode)}
-                              className="text-[10px] text-text-muted/50 hover:text-text-muted transition-colors"
-                            >
-                              {showActivationCode ? "收起" : "管理员入口"}
-                            </button>
-                            {showActivationCode && (
-                              <div className="mt-2 flex gap-2">
-                                <input
-                                  value={imageGenCode}
-                                  onChange={(e) => {
-                                    setImageGenCode(e.target.value);
-                                    if (imageGenError) setImageGenError("");
-                                  }}
-                                  placeholder="激活码"
-                                  maxLength={32}
-                                  disabled={isImageActivating}
-                                  className="flex-1 rounded-xl border border-border bg-white p-2 text-xs
-                                             text-text-primary placeholder:text-text-muted/60 outline-none text-center
-                                             focus:border-primary/40 focus:ring-2 focus:ring-primary/10
-                                             disabled:opacity-50 transition-all"
-                                />
-                                <button
-                                  onClick={handleActivateAndGenerateImage}
-                                  disabled={isImageActivating || !imageGenCode.trim()}
-                                  className="px-4 py-2 bg-gradient-to-r from-primary to-primary-light text-white
-                                             rounded-xl text-xs font-semibold disabled:opacity-40
-                                             hover:opacity-90 transition-all active:scale-[0.98]"
-                                >
-                                  {isImageActivating ? "验证中..." : "生成"}
-                                </button>
-                              </div>
-                            )}
-                          </div>
                         </div>
-                      ) : (
-                        /* 未创建订单：显示创建按钮 */
-                        <div className="space-y-3">
-                          <p className="text-xs text-text-secondary text-center">
-                            支付 ¥0.99 即可生成穿搭照片，本会话内不限次数
-                          </p>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setShowImagePayment(false)}
-                              className="flex-1 py-2.5 border border-border rounded-xl text-xs text-text-muted
-                                         hover:text-text-primary transition-colors"
-                            >
-                              取消
-                            </button>
-                            <button
-                              onClick={handleCreatePayment}
-                              disabled={isCreatingPayment}
-                              className="flex-1 py-2.5 bg-gradient-to-r from-primary to-primary-light text-white
-                                         rounded-xl text-xs font-semibold disabled:opacity-40
-                                         hover:opacity-90 transition-all active:scale-[0.98]"
-                            >
-                              {isCreatingPayment ? (
-                                <>
-                                  <span className="relative inline-block w-3.5 h-3.5 mr-1 align-middle">
-                                    <span className="absolute inset-0 rounded-full border-2 border-white/30" />
-                                    <span className="absolute inset-0 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                                  </span>
-                                  创建中...
-                                </>
-                              ) : (
-                                "💳 扫码支付 ¥0.99"
-                              )}
-                            </button>
-                          </div>
-                          {imageGenError && (
-                            <p className="text-xs text-red-400 text-center animate-fade-in">{imageGenError}</p>
-                          )}
 
-                          {/* 激活码入口（折叠） */}
-                          <div className="pt-1 text-center">
-                            <button
-                              onClick={() => setShowActivationCode(!showActivationCode)}
-                              className="text-[10px] text-text-muted/50 hover:text-text-muted transition-colors"
-                            >
-                              {showActivationCode ? "收起" : "管理员入口"}
-                            </button>
-                            {showActivationCode && (
-                              <div className="mt-2 flex gap-2">
-                                <input
-                                  value={imageGenCode}
-                                  onChange={(e) => {
-                                    setImageGenCode(e.target.value);
-                                    if (imageGenError) setImageGenError("");
-                                  }}
-                                  placeholder="激活码"
-                                  maxLength={32}
-                                  disabled={isImageActivating}
-                                  className="flex-1 rounded-xl border border-border bg-white p-2 text-xs
-                                             text-text-primary placeholder:text-text-muted/60 outline-none text-center
-                                             focus:border-primary/40 focus:ring-2 focus:ring-primary/10
-                                             disabled:opacity-50 transition-all"
-                                />
-                                <button
-                                  onClick={handleActivateAndGenerateImage}
-                                  disabled={isImageActivating || !imageGenCode.trim()}
-                                  className="px-4 py-2 bg-gradient-to-r from-primary to-primary-light text-white
-                                             rounded-xl text-xs font-semibold disabled:opacity-40
-                                             hover:opacity-90 transition-all active:scale-[0.98]"
-                                >
-                                  {isImageActivating ? "验证中..." : "生成"}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                        {imageGenError && (
+                          <p className="text-xs text-red-400 text-center animate-fade-in">{imageGenError}</p>
+                        )}
+
+                        <button
+                          onClick={() => setShowImagePayment(false)}
+                          className="w-full py-2 border border-border rounded-xl text-xs text-text-muted
+                                     hover:text-text-primary transition-colors"
+                        >
+                          取消
+                        </button>
+                      </div>
                     </div>
-                  ) : isPaid ? (
-                    /* 已支付：直接生成 */
+                  ) : isActivated ? (
+                    /* 已激活：直接生成 */
                     <button
                       onClick={doGenerateImage}
                       disabled={isGeneratingImage}
@@ -953,7 +768,7 @@ export default function GeneratePage() {
                         <>
                           <span>📸</span>
                           生成穿搭照片
-                          <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded">已支付</span>
+                          <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded">已激活</span>
                         </>
                       )}
                     </button>
