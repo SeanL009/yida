@@ -30,7 +30,67 @@ function AnimatedSection({
   );
 }
 
+/** 获取当前季节 */
+function getCurrentSeason(): { id: string; emoji: string; label: string } {
+  const m = new Date().getMonth() + 1;
+  if (m >= 3 && m <= 5) return { id: "春季", emoji: "🌷", label: "春日" };
+  if (m >= 6 && m <= 8) return { id: "夏季", emoji: "☀️", label: "夏日" };
+  if (m >= 9 && m <= 11) return { id: "秋季", emoji: "🍂", label: "秋日" };
+  return { id: "冬季", emoji: "❄️", label: "冬日" };
+}
+
+/** 各季节推荐穿搭 */
+const SEASONAL_OUTFITS: Record<string, { style: string; occasion: string; items: Array<{ emoji: string; label: string; value: string }> }> = {
+  "春季": {
+    style: "元气通勤风",
+    occasion: "日常通勤",
+    items: [
+      { emoji: "🧥", label: "外套", value: "卡其色风衣" },
+      { emoji: "👚", label: "上装", value: "条纹针织衫" },
+      { emoji: "👖", label: "下装", value: "米白直筒裤" },
+      { emoji: "👟", label: "鞋子", value: "帆布小白鞋" },
+      { emoji: "👜", label: "配饰", value: "编织托特包" },
+    ],
+  },
+  "夏季": {
+    style: "清新清爽风",
+    occasion: "日常通勤",
+    items: [
+      { emoji: "👚", label: "上装", value: "白色亚麻衬衫" },
+      { emoji: "👗", label: "下装", value: "浅蓝 A 字裙" },
+      { emoji: "👡", label: "鞋子", value: "米色平底凉鞋" },
+      { emoji: "🕶️", label: "配饰", value: "草编包 + 墨镜" },
+      { emoji: "🧴", label: "防晒", value: "防晒开衫" },
+    ],
+  },
+  "秋季": {
+    style: "温柔气质风",
+    occasion: "日常通勤",
+    items: [
+      { emoji: "🧥", label: "外套", value: "燕麦色西装" },
+      { emoji: "👚", label: "内搭", value: "奶茶色打底衫" },
+      { emoji: "👖", label: "下装", value: "深灰阔腿裤" },
+      { emoji: "👢", label: "鞋子", value: "棕色切尔西靴" },
+      { emoji: "👜", label: "配饰", value: "大号托特包" },
+    ],
+  },
+  "冬季": {
+    style: "温暖优雅风",
+    occasion: "日常通勤",
+    items: [
+      { emoji: "🧥", label: "外套", value: "驼色羊毛大衣" },
+      { emoji: "🥿", label: "内搭", value: "黑色高领毛衣" },
+      { emoji: "👖", label: "下装", value: "加绒直筒牛仔裤" },
+      { emoji: "👢", label: "鞋子", value: "短靴" },
+      { emoji: "🧣", label: "配饰", value: "羊绒围巾" },
+    ],
+  },
+};
+
 export default function Home() {
+  const season = getCurrentSeason();
+  const outfit = SEASONAL_OUTFITS[season.id];
+
   return (
     <div className="flex-1 flex flex-col">
       {/* ============ Hero ============ */}
@@ -81,26 +141,20 @@ export default function Home() {
             <p className="text-text-muted text-xs">无需注册 · 免费使用</p>
           </div>
 
-          {/* 浮动的预览卡片 */}
+          {/* 浮动的预览卡片 — 根据当前季节自动切换 */}
           <div className="animate-scale-up delay-500 pt-4 animate-float">
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-border/60 p-4 text-left max-w-[280px] mx-auto">
               <div className="flex items-center gap-2.5 mb-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-white text-sm shadow-sm">
-                  ✨
+                  {season.emoji}
                 </div>
                 <div className="text-left">
-                  <p className="text-[10px] text-text-muted">今日推荐 · 通勤穿搭</p>
-                  <p className="text-sm font-semibold text-text-primary">温柔知性风</p>
+                  <p className="text-[10px] text-text-muted">今日推荐 · {season.label}{outfit.occasion}</p>
+                  <p className="text-sm font-semibold text-text-primary">{outfit.style}</p>
                 </div>
               </div>
               <div className="space-y-1.5">
-                {[
-                  { emoji: "🧥", label: "外套", value: "米色长款风衣" },
-                  { emoji: "👚", label: "内搭", value: "白色真丝衬衫" },
-                  { emoji: "👖", label: "下装", value: "深蓝直筒牛仔裤" },
-                  { emoji: "👟", label: "鞋子", value: "米色尖头低跟鞋" },
-                  { emoji: "👜", label: "配饰", value: "棕色托特包" },
-                ].map((item) => (
+                {outfit.items.map((item) => (
                   <div key={item.label} className="flex items-center gap-2 py-0.5">
                     <span className="text-sm">{item.emoji}</span>
                     <span className="text-[10px] text-text-muted w-7">{item.label}</span>
