@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import FeedbackForm from "@/components/FeedbackForm";
 import { useInView } from "@/hooks/useInView";
@@ -39,11 +40,100 @@ function getCurrentSeason(): { id: string; emoji: string; label: string } {
   return { id: "冬季", emoji: "❄️", label: "冬日" };
 }
 
-/** 各季节推荐穿搭 */
-const SEASONAL_OUTFITS: Record<string, { style: string; occasion: string; items: Array<{ emoji: string; label: string; value: string }> }> = {
+/** 根据温度获取穿搭推荐 */
+function getWeatherOutfit(temp: number) {
+  if (temp >= 30) return {
+    style: "清凉防暑",
+    occasion: "日常出行",
+    tag: `${temp}°C · 注意防暑`,
+    items: [
+      { emoji: "👗", label: "裙装", value: "吊带连衣裙" },
+      { emoji: "🧴", label: "防晒", value: "薄款防晒衫" },
+      { emoji: "👡", label: "鞋子", value: "平底凉拖" },
+      { emoji: "🕶️", label: "配饰", value: "墨镜 + 遮阳帽" },
+      { emoji: "👜", label: "包包", value: "草编包" },
+    ],
+  };
+  if (temp >= 25) return {
+    style: "清爽夏装",
+    occasion: "日常出行",
+    tag: `${temp}°C · 温暖舒适`,
+    items: [
+      { emoji: "👚", label: "上装", value: "亚麻短袖衬衫" },
+      { emoji: "👖", label: "下装", value: "浅色短裤" },
+      { emoji: "👟", label: "鞋子", value: "帆布鞋" },
+      { emoji: "👜", label: "配饰", value: "帆布托特包" },
+      { emoji: "🧴", label: "防晒", value: "防晒帽" },
+    ],
+  };
+  if (temp >= 20) return {
+    style: "春夏过渡",
+    occasion: "日常出行",
+    tag: `${temp}°C · 微凉舒适`,
+    items: [
+      { emoji: "👚", label: "上装", value: "薄款针织衫" },
+      { emoji: "👗", label: "下装", value: "中长半身裙" },
+      { emoji: "👟", label: "鞋子", value: "小白鞋" },
+      { emoji: "🧥", label: "薄外套", value: "牛仔外套" },
+      { emoji: "👜", label: "配饰", value: "斜挎包" },
+    ],
+  };
+  if (temp >= 15) return {
+    style: "春秋装",
+    occasion: "日常出行",
+    tag: `${temp}°C · 适宜外出`,
+    items: [
+      { emoji: "🧥", label: "外套", value: "风衣" },
+      { emoji: "👚", label: "内搭", value: "条纹T恤" },
+      { emoji: "👖", label: "下装", value: "直筒牛仔裤" },
+      { emoji: "👢", label: "鞋子", value: "马丁靴" },
+      { emoji: "👜", label: "配饰", value: "托特包" },
+    ],
+  };
+  if (temp >= 10) return {
+    style: "早春深秋",
+    occasion: "日常出行",
+    tag: `${temp}°C · 偏凉添衣`,
+    items: [
+      { emoji: "🧥", label: "外套", value: "毛呢西装" },
+      { emoji: "🥿", label: "内搭", value: "高领打底衫" },
+      { emoji: "👖", label: "下装", value: "灯芯绒长裤" },
+      { emoji: "👢", label: "鞋子", value: "切尔西靴" },
+      { emoji: "🧣", label: "配饰", value: "丝巾" },
+    ],
+  };
+  if (temp >= 5) return {
+    style: "初冬保暖",
+    occasion: "日常出行",
+    tag: `${temp}°C · 注意保暖`,
+    items: [
+      { emoji: "🧥", label: "外套", value: "派克大衣" },
+      { emoji: "🥿", label: "内搭", value: "羊毛毛衣" },
+      { emoji: "👖", label: "下装", value: "厚款牛仔裤" },
+      { emoji: "👢", label: "鞋子", value: "雪地短靴" },
+      { emoji: "🧣", label: "配饰", value: "毛线围巾" },
+    ],
+  };
+  return {
+    style: "寒冬保暖",
+    occasion: "日常出行",
+    tag: `${temp}°C · 注意保暖`,
+    items: [
+      { emoji: "🧥", label: "外套", value: "长款羽绒服" },
+      { emoji: "🥿", label: "内搭", value: "加厚高领毛衣" },
+      { emoji: "👖", label: "下装", value: "加绒裤" },
+      { emoji: "👢", label: "鞋子", value: "雪地靴" },
+      { emoji: "🧣", label: "配饰", value: "围巾 + 手套" },
+    ],
+  };
+}
+
+/** 各季节推荐穿搭（回退方案） */
+const SEASONAL_OUTFITS: Record<string, { style: string; occasion: string; tag: string; items: Array<{ emoji: string; label: string; value: string }> }> = {
   "春季": {
     style: "元气通勤风",
     occasion: "日常通勤",
+    tag: "春季",
     items: [
       { emoji: "🧥", label: "外套", value: "卡其色风衣" },
       { emoji: "👚", label: "上装", value: "条纹针织衫" },
@@ -55,6 +145,7 @@ const SEASONAL_OUTFITS: Record<string, { style: string; occasion: string; items:
   "夏季": {
     style: "清新清爽风",
     occasion: "日常通勤",
+    tag: "夏季",
     items: [
       { emoji: "👚", label: "上装", value: "白色亚麻衬衫" },
       { emoji: "👗", label: "下装", value: "浅蓝 A 字裙" },
@@ -66,6 +157,7 @@ const SEASONAL_OUTFITS: Record<string, { style: string; occasion: string; items:
   "秋季": {
     style: "温柔气质风",
     occasion: "日常通勤",
+    tag: "秋季",
     items: [
       { emoji: "🧥", label: "外套", value: "燕麦色西装" },
       { emoji: "👚", label: "内搭", value: "奶茶色打底衫" },
@@ -77,6 +169,7 @@ const SEASONAL_OUTFITS: Record<string, { style: string; occasion: string; items:
   "冬季": {
     style: "温暖优雅风",
     occasion: "日常通勤",
+    tag: "冬季",
     items: [
       { emoji: "🧥", label: "外套", value: "驼色羊毛大衣" },
       { emoji: "🥿", label: "内搭", value: "黑色高领毛衣" },
@@ -89,7 +182,64 @@ const SEASONAL_OUTFITS: Record<string, { style: string; occasion: string; items:
 
 export default function Home() {
   const season = getCurrentSeason();
-  const outfit = SEASONAL_OUTFITS[season.id];
+  const [weatherTemp, setWeatherTemp] = useState<number | null>(null);
+  const [weatherCity, setWeatherCity] = useState("");
+  const [weatherLoaded, setWeatherLoaded] = useState(false);
+
+  // 获取用户位置和当地温度
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setWeatherLoaded(true);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+
+        try {
+          // Open-Meteo 天气 API（免费，无需 Key）
+          const weatherRes = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&timezone=auto`
+          );
+          const weatherData = await weatherRes.json();
+          const temp = weatherData.current_weather?.temperature;
+          if (temp !== undefined) {
+            setWeatherTemp(Math.round(temp));
+          }
+
+          // 反向地理编码获取城市名（Open-Meteo Geocoding）
+          try {
+            const geoRes = await fetch(
+              `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=zh&count=1`
+            );
+            const geoData = await geoRes.json();
+            if (geoData.results?.length > 0) {
+              setWeatherCity(geoData.results[0].name || "");
+            }
+          } catch {
+            // 获取城市名失败不影响主要功能
+          }
+        } catch {
+          // 天气 API 失败不影响页面
+        } finally {
+          setWeatherLoaded(true);
+        }
+      },
+      () => {
+        // 用户拒绝定位 → 使用季节推荐
+        setWeatherLoaded(true);
+      },
+      { timeout: 5000, enableHighAccuracy: false }
+    );
+  }, []);
+
+  // 根据天气或季节选择推荐
+  const outfit = weatherTemp !== null
+    ? getWeatherOutfit(weatherTemp)
+    : SEASONAL_OUTFITS[season.id];
+  const showWeather = weatherTemp !== null;
+  const locationLabel = weatherCity || (showWeather ? "" : "");
 
   return (
     <div className="flex-1 flex flex-col">
@@ -141,15 +291,20 @@ export default function Home() {
             <p className="text-text-muted text-xs">无需注册 · 免费使用</p>
           </div>
 
-          {/* 浮动的预览卡片 — 根据当前季节自动切换 */}
+          {/* 浮动的预览卡片 — 根据当地天气/季节自动切换 */}
           <div className="animate-scale-up delay-500 pt-4 animate-float">
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-border/60 p-4 text-left max-w-[280px] mx-auto">
               <div className="flex items-center gap-2.5 mb-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-white text-sm shadow-sm">
-                  {season.emoji}
+                  {showWeather ? "🌤️" : season.emoji}
                 </div>
                 <div className="text-left">
-                  <p className="text-[10px] text-text-muted">今日推荐 · {season.label}{outfit.occasion}</p>
+                  <p className="text-[10px] text-text-muted">
+                    {showWeather
+                      ? `${locationLabel}${outfit.tag} · ${outfit.occasion}`
+                      : `今日推荐 · ${season.label}${outfit.occasion}`
+                    }
+                  </p>
                   <p className="text-sm font-semibold text-text-primary">{outfit.style}</p>
                 </div>
               </div>
