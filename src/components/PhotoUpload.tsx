@@ -7,6 +7,29 @@ interface PhotoUploadProps {
   disabled?: boolean;
 }
 
+/** 判断是否为 HEIC 文件（iPhone 默认格式） */
+function isHeicFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return (
+    name.endsWith(".heic") ||
+    name.endsWith(".heif") ||
+    file.type === "image/heic" ||
+    file.type === "image/heif"
+  );
+}
+
+/** HEIC → JPEG 转换（动态 import，避免 SSR 时 window 未定义） */
+async function convertHeicToJpeg(file: File): Promise<Blob> {
+  const heic2any = (await import("heic2any")).default;
+  const result = await heic2any({
+    blob: file,
+    toType: "image/jpeg",
+    quality: 0.9,
+  });
+  // heic2any 可能返回 Blob 或 Blob[]
+  return Array.isArray(result) ? result[0] : result;
+}
+
 /** 女性身形参考图 SVG */
 function PoseGuide() {
   return (
@@ -51,11 +74,30 @@ export default function PhotoUpload({
   const [error, setError] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const [isConverting, setIsConverting] = useState(false);
+
+  const handleFile = async (file: File) => {
     setError("");
+    setIsConverting(false);
+
+    // HEIC 检测（iPhone 默认格式）
+    if (isHeicFile(file)) {
+      setIsConverting(true);
+      try {
+        const jpegBlob = await convertHeicToJpeg(file);
+        // 用转换后的 JPEG 重建 File 对象
+        const newName = file.name.replace(/\.(heic|heif)$/i, ".jpg");
+        file = new File([jpegBlob], newName, { type: "image/jpeg" });
+      } catch (e: any) {
+        setError("HEIC 转换失败，请尝试将照片转为 JPG 后重试");
+        setIsConverting(false);
+        return;
+      }
+      setIsConverting(false);
+    }
 
     if (!file.type.startsWith("image/")) {
-      setError("请选择图片格式的文件（JPG / PNG）");
+      setError("请选择图片格式的照片（JPG / PNG / HEIC / WebP）");
       return;
     }
 
@@ -147,55 +189,68 @@ export default function PhotoUpload({
       )}
 
       {!preview ? (
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => inputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer
-            transition-all duration-200
-            ${isDragging
-              ? "border-primary bg-primary/5 shadow-inner scale-[1.01]"
-              : "border-border hover:border-primary hover:bg-secondary/30"
-            }`}
-        >
-          <div className="flex flex-col items-center gap-3">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-200
-              ${isDragging ? "bg-primary/10" : "bg-secondary"}`}>
-              <svg
-                className={`w-8 h-8 transition-colors duration-200 ${isDragging ? "text-primary" : "text-primary"}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
-                />
-              </svg>
+        <div>
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => inputRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer
+              transition-all duration-200
+              ${isDragging
+                ? "border-primary bg-primary/5 shadow-inner scale-[1.01]"
+                : "border-border hover:border-primary hover:bg-secondary/30"
+              }`}
+          >
+            <div className="flex flex-col items-center gap-3">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-200
+                ${isConverting ? "bg-primary/10 animate-pulse-soft" : isDragging ? "bg-primary/10" : "bg-secondary"}`}>
+                {isConverting ? (
+                  <div className="relative w-8 h-8">
+                    <div className="absolute inset-0 rounded-full border-3 border-secondary" />
+                    <div className="absolute inset-0 rounded-full border-3 border-primary border-t-transparent animate-spin" />
+                  </div>
+                ) : (
+                  <svg
+                    className={`w-8 h-8 transition-colors duration-200 ${isDragging ? "text-primary" : "text-primary"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                    />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <p className="text-text-primary font-medium">
+                  {isConverting ? "正在转换 HEIC 照片..." : isDragging ? "松手以上传照片" : "点击或拖拽上传照片"}
+                </p>
+                <p className="text-text-muted text-sm mt-1">
+                  {isConverting ? "iPhone 照片自动转为 JPG 格式" : "按照上方指南拍一张照片，AI 帮你精准搭配"}
+                </p>
+              </div>
+              <span className="text-xs text-text-muted bg-secondary px-3 py-1 rounded-full">
+                支持 JPG / PNG / HEIC / WebP
+              </span>
             </div>
-            <div>
-              <p className="text-text-primary font-medium">
-                {isDragging ? "松手以上传照片" : "点击或拖拽上传照片"}
-              </p>
-              <p className="text-text-muted text-sm mt-1">
-                按照上方指南拍一张照片，AI 帮你精准搭配
-              </p>
-            </div>
-            <span className="text-xs text-text-muted bg-secondary px-3 py-1 rounded-full">
-              支持 JPG / PNG
-            </span>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*,.heic,.heif,.HEIC,.HEIF"
+              onChange={handleChange}
+              className="hidden"
+              disabled={disabled || isConverting}
+            />
           </div>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleChange}
-            className="hidden"
-            disabled={disabled}
-          />
+          {/* 隐私说明 */}
+          <p className="text-[10px] text-text-muted/60 text-center mt-2.5 leading-relaxed">
+            您的照片仅用于本次 AI 分析，分析完成后即丢弃，不会保存到服务器
+          </p>
         </div>
       ) : (
         <div className="relative rounded-2xl overflow-hidden bg-white shadow-sm border border-border animate-scale-up">

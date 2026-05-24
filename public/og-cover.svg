@@ -1,0 +1,119 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF5F7"/>
+      <stop offset="50%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FFF0F5"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E86B8C"/>
+      <stop offset="100%" stop-color="#F4A3B8"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#D4536F"/>
+      <stop offset="100%" stop-color="#F4A3B8"/>
+    </linearGradient>
+    <linearGradient id="cardHeader" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#E86B8C"/>
+      <stop offset="100%" stop-color="#F4A3B8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Decorative circles -->
+  <circle cx="1050" cy="100" r="250" fill="url(#accent)" opacity="0.08"/>
+  <circle cx="150" cy="530" r="200" fill="url(#accent)" opacity="0.06"/>
+  <circle cx="600" cy="315" r="400" fill="url(#accent)" opacity="0.04"/>
+
+  <!-- ===== LEFT COLUMN ===== -->
+
+  <!-- Outfit Card Mockup -->
+  <rect x="60" y="100" width="480" height="420" rx="24" fill="white" stroke="#F0E6EA" stroke-width="2"/>
+
+  <!-- Card header -->
+  <rect x="60" y="100" width="480" height="90" rx="24" fill="url(#cardHeader)"/>
+  <rect x="60" y="160" width="480" height="30" fill="url(#cardHeader)"/>
+
+  <!-- Sparkle icon (circles forming stars) -->
+  <circle cx="270" cy="135" r="18" fill="white" opacity="0.3"/>
+  <circle cx="310" cy="135" r="18" fill="white" opacity="0.3"/>
+  <circle cx="290" cy="155" r="18" fill="white" opacity="0.3"/>
+  <circle cx="300" cy="148" r="14" fill="white"/>
+
+  <text x="300" y="205" font-family="sans-serif" font-size="22" font-weight="700" fill="white" text-anchor="middle">AI 搭配方案</text>
+
+  <!-- Item 1 -->
+  <rect x="90" y="220" width="420" height="52" rx="10" fill="#F8E8EE" opacity="0.6"/>
+  <rect x="100" y="230" width="32" height="32" rx="8" fill="white"/>
+  <text x="116" y="252" font-family="sans-serif" font-size="14" fill="#777" text-anchor="middle">👚</text>
+  <text x="145" y="248" font-family="sans-serif" font-size="12" fill="#888">上装</text>
+  <text x="145" y="262" font-family="sans-serif" font-size="14" font-weight="500" fill="#2D2D2D">米色 V领雪纺衬衫</text>
+
+  <!-- Item 2 -->
+  <rect x="90" y="280" width="420" height="52" rx="10" fill="#F8E8EE" opacity="0.6"/>
+  <rect x="100" y="290" width="32" height="32" rx="8" fill="white"/>
+  <text x="116" y="312" font-family="sans-serif" font-size="14" fill="#777" text-anchor="middle">👖</text>
+  <text x="145" y="308" font-family="sans-serif" font-size="12" fill="#888">下装</text>
+  <text x="145" y="322" font-family="sans-serif" font-size="14" font-weight="500" fill="#2D2D2D">深灰 高腰阔腿西裤</text>
+
+  <!-- Item 3 -->
+  <rect x="90" y="340" width="420" height="52" rx="10" fill="#F8E8EE" opacity="0.6"/>
+  <rect x="100" y="350" width="32" height="32" rx="8" fill="white"/>
+  <text x="116" y="372" font-family="sans-serif" font-size="14" fill="#777" text-anchor="middle">🧥</text>
+  <text x="145" y="368" font-family="sans-serif" font-size="12" fill="#888">外套</text>
+  <text x="145" y="382" font-family="sans-serif" font-size="14" font-weight="500" fill="#2D2D2D">卡其 及膝风衣</text>
+
+  <!-- Tip -->
+  <rect x="90" y="405" width="420" height="40" rx="10" fill="#FDF0F3" stroke="#F0E6EA" stroke-width="1"/>
+  <text x="110" y="430" font-family="sans-serif" font-size="16">💡</text>
+  <text x="135" y="430" font-family="sans-serif" font-size="13" fill="#666">梨形身材上浅下深的搭配能平衡视觉比例</text>
+
+  <!-- After arrow indicator -->
+  <rect x="275" y="468" width="50" height="22" rx="11" fill="url(#cardHeader)"/>
+  <text x="300" y="484" font-family="sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">→</text>
+
+  <!-- ===== RIGHT COLUMN ===== -->
+
+  <!-- Main title -->
+  <text x="600" y="200" font-family="sans-serif" font-size="64" font-weight="800" fill="url(#title)" text-anchor="middle">衣搭</text>
+
+  <!-- Subtitle -->
+  <text x="600" y="260" font-family="sans-serif" font-size="30" font-weight="600" fill="#555" text-anchor="middle">AI 穿搭助手</text>
+
+  <!-- Tagline pill -->
+  <rect x="460" y="290" width="280" height="38" rx="19" fill="#F8E8EE"/>
+  <text x="600" y="315" font-family="sans-serif" font-size="16" font-weight="500" fill="#D4536F" text-anchor="middle">上传照片 · 秒级生成</text>
+
+  <!-- Feature items -->
+  <!-- Row 1 -->
+  <rect x="460" y="350" width="130" height="32" rx="16" fill="white" stroke="#F0E6EA" stroke-width="1.5"/>
+  <text x="525" y="371" font-family="sans-serif" font-size="13" fill="#666" text-anchor="middle">🔍 体型分析</text>
+
+  <rect x="610" y="350" width="130" height="32" rx="16" fill="white" stroke="#F0E6EA" stroke-width="1.5"/>
+  <text x="675" y="371" font-family="sans-serif" font-size="13" fill="#666" text-anchor="middle">🎨 风格搭配</text>
+
+  <!-- Row 2 -->
+  <rect x="460" y="395" width="130" height="32" rx="16" fill="white" stroke="#F0E6EA" stroke-width="1.5"/>
+  <text x="525" y="416" font-family="sans-serif" font-size="13" fill="#666" text-anchor="middle">📱 分享小红书</text>
+
+  <rect x="610" y="395" width="130" height="32" rx="16" fill="white" stroke="#F0E6EA" stroke-width="1.5"/>
+  <text x="675" y="416" font-family="sans-serif" font-size="13" fill="#666" text-anchor="middle">🎁 每日免费</text>
+
+  <!-- Stats divider -->
+  <rect x="460" y="460" width="280" height="1" fill="#F0E6EA"/>
+
+  <!-- Stats -->
+  <text x="500" y="495" font-family="sans-serif" font-size="14" font-weight="600" fill="#2D2D2D" text-anchor="middle">10,000+</text>
+  <text x="500" y="510" font-family="sans-serif" font-size="11" fill="#999" text-anchor="middle">用户</text>
+
+  <text x="600" y="495" font-family="sans-serif" font-size="14" font-weight="600" fill="#2D2D2D" text-anchor="middle">98%</text>
+  <text x="600" y="510" font-family="sans-serif" font-size="11" fill="#999" text-anchor="middle">好评率</text>
+
+  <text x="700" y="495" font-family="sans-serif" font-size="14" font-weight="600" fill="#2D2D2D" text-anchor="middle">50,000+</text>
+  <text x="700" y="510" font-family="sans-serif" font-size="11" fill="#999" text-anchor="middle">穿搭方案</text>
+
+  <!-- URL -->
+  <text x="600" y="580" font-family="sans-serif" font-size="13" fill="#BBB" text-anchor="middle">jiulant.cn</text>
+</svg>

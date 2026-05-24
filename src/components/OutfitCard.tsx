@@ -101,7 +101,7 @@ export default function OutfitCard({ outfit, onShare }: OutfitCardProps) {
             <div key={idx} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
               {/* 分类图标圆圈 */}
               <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
-                <span className="text-base">{CATEGORY_EMOJI[item.category] || "•"}</span>
+                <span className="text-base" role="img" aria-label={item.category}>{CATEGORY_EMOJI[item.category] || "•"}</span>
               </div>
 
               {/* 单品详情 */}
@@ -148,7 +148,7 @@ export default function OutfitCard({ outfit, onShare }: OutfitCardProps) {
         {outfit.tip && (
           <div className="bg-warm rounded-xl p-3 border border-border/30">
             <div className="flex items-start gap-2">
-              <span className="text-sm leading-none mt-0.5">💡</span>
+              <span className="text-sm leading-none mt-0.5" role="img" aria-label="穿搭提示">💡</span>
               <p className="text-xs text-text-secondary leading-relaxed">{outfit.tip}</p>
             </div>
           </div>

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import PhotoUpload from "@/components/PhotoUpload";
 import OutfitCard from "@/components/OutfitCard";
 import FeedbackForm from "@/components/FeedbackForm";
 import { STYLE_DNA, OCCASIONS, COLOR_SCHEMES, SEASONS } from "@/lib/types";
 import type { AnalysisResult, OutfitSuggestion } from "@/lib/types";
-import { recordGeneration } from "@/lib/dailyLimit";
+import { recordGeneration, canGenerate, getRemainingGenerations } from "@/lib/dailyLimit";
 
 type Step = "upload" | "choose" | "generating" | "result";
 
@@ -21,6 +21,13 @@ export default function GeneratePage() {
   const [outfits, setOutfits] = useState<OutfitSuggestion[]>([]);
   const [error, setError] = useState<string>("");
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [dailyRemaining, setDailyRemaining] = useState(3);
+  const [showLimitReached, setShowLimitReached] = useState(false);
+
+  // 检查每日剩余次数
+  useEffect(() => {
+    setDailyRemaining(getRemainingGenerations());
+  }, []);
 
   // 穿搭照片生成
   const [showImagePayment, setShowImagePayment] = useState(false);
@@ -31,6 +38,14 @@ export default function GeneratePage() {
   const [generatedImagePrompt, setGeneratedImagePrompt] = useState("");
   const [imageGenError, setImageGenError] = useState("");
   const [isActivated, setIsActivated] = useState(false);
+
+  // 微信支付
+  const [paymentOrderId, setPaymentOrderId] = useState("");
+  const [paymentCodeUrl, setPaymentCodeUrl] = useState("");
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+  const [isPollingPayment, setIsPollingPayment] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
+  const paymentIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleImageReady = async (dataUrl: string) => {
     setImageDataUrl(dataUrl);
@@ -60,7 +75,14 @@ export default function GeneratePage() {
   const handleGenerate = async () => {
     if (!selectedStyle || !selectedOccasion) return;
 
+    // 检查每日限制
+    if (!canGenerate()) {
+      setShowLimitReached(true);
+      return;
+    }
+
     recordGeneration();
+    setDailyRemaining(getRemainingGenerations());
 
     setStep("generating");
     setError("");
@@ -96,7 +118,14 @@ export default function GeneratePage() {
   const handleRegenerate = async () => {
     if (isRegenerating) return;
 
+    // 检查每日限制
+    if (!canGenerate()) {
+      setShowLimitReached(true);
+      return;
+    }
+
     recordGeneration();
+    setDailyRemaining(getRemainingGenerations());
     setIsRegenerating(true);
     setError("");
 
@@ -105,6 +134,14 @@ export default function GeneratePage() {
     setGeneratedImagePrompt("");
     setShowImagePayment(false);
     setImageGenError("");
+    // 清除支付轮询
+    if (paymentIntervalRef.current) {
+      clearInterval(paymentIntervalRef.current);
+      paymentIntervalRef.current = null;
+    }
+    setIsPollingPayment(false);
+    setPaymentCodeUrl("");
+    setPaymentOrderId("");
 
     try {
       const res = await fetch("/api/generate", {
@@ -169,6 +206,67 @@ export default function GeneratePage() {
       setIsImageActivating(false);
     }
   };
+
+  /** 创建微信支付订单 */
+  const handleCreateWeChatPayment = async () => {
+    if (isCreatingPayment) return;
+
+    setIsCreatingPayment(true);
+    setImageGenError("");
+
+    try {
+      const res = await fetch("/api/payment/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "衣搭 - AI穿搭照片" }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.codeUrl) {
+        setPaymentOrderId(data.orderId);
+        setPaymentCodeUrl(data.codeUrl);
+        setIsPollingPayment(true);
+      } else {
+        setImageGenError(data.error || "创建支付失败");
+      }
+    } catch {
+      setImageGenError("网络错误，请稍后重试");
+    } finally {
+      setIsCreatingPayment(false);
+    }
+  };
+
+  /** 轮询支付状态 */
+  useEffect(() => {
+    if (!isPollingPayment || !paymentOrderId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/payment/status?order_id=${paymentOrderId}`
+        );
+        const data = await res.json();
+        if (data.paid) {
+          clearInterval(interval);
+          paymentIntervalRef.current = null;
+          setIsPollingPayment(false);
+          setIsPaid(true);
+          setShowImagePayment(false);
+        }
+      } catch {
+        // 轮询失败静默处理
+      }
+    }, 2000);
+
+    paymentIntervalRef.current = interval;
+
+    return () => {
+      if (paymentIntervalRef.current) {
+        clearInterval(paymentIntervalRef.current);
+        paymentIntervalRef.current = null;
+      }
+    };
+  }, [isPollingPayment, paymentOrderId]);
 
   /** 直接生成穿搭照片（已付费/已激活后调用） */
   const doGenerateImage = async () => {
@@ -253,18 +351,38 @@ export default function GeneratePage() {
     setSelectedSeason("");
     setOutfits([]);
     setError("");
+    // 清除支付/激活状态
+    setShowImagePayment(false);
+    setGeneratedImageUrl("");
+    setGeneratedImagePrompt("");
+    setImageGenError("");
+    setIsActivated(false);
+    setIsPaid(false);
+    setPaymentCodeUrl("");
+    setPaymentOrderId("");
+    setIsPollingPayment(false);
+    setImageGenCode("");
+    if (paymentIntervalRef.current) {
+      clearInterval(paymentIntervalRef.current);
+      paymentIntervalRef.current = null;
+    }
   };
 
   const stepMap: Step[] = ["upload", "choose", "result"];
   const currentIdx = stepMap.indexOf(step);
 
   return (
-    <div className="flex-1 max-w-lg mx-auto w-full px-4 py-6 pb-24">
+    <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6 pb-24">
       {/* 顶栏 */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="text-primary text-xl">✨</span>
           <span className="font-bold text-text-primary text-lg">衣搭</span>
+          {dailyRemaining < 3 && (
+            <span className="text-[10px] text-text-muted bg-secondary px-2 py-0.5 rounded-full">
+              今日剩余 {dailyRemaining} 次
+            </span>
+          )}
         </div>
         <button
           onClick={handleReset}
@@ -277,9 +395,9 @@ export default function GeneratePage() {
       {/* ===== 步骤指示器（优化版） ===== */}
       <div className="flex items-center justify-center gap-0 mb-8">
         {[
-          { num: 1, label: "上传照片", key: "upload" as Step },
-          { num: 2, label: "选择风格", key: "choose" as Step },
-          { num: 3, label: "生成方案", key: "result" as Step },
+          { num: 1, label: "上传照片", key: "upload" as Step, hint: "📸" },
+          { num: 2, label: "选择风格", key: "choose" as Step, hint: "🧘🌸💼🔥" },
+          { num: 3, label: "生成方案", key: "result" as Step, hint: "👗✨" },
         ].map((s, i) => {
           const isActive = i <= currentIdx;
           const isCurrent = i === currentIdx;
@@ -288,7 +406,7 @@ export default function GeneratePage() {
           return (
             <div key={s.num} className="flex items-center">
               {/* 步骤圆圈 */}
-              <div className="flex flex-col items-center gap-1.5">
+              <div className="flex flex-col items-center gap-0.5">
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold
                     transition-all duration-500 ease-out
@@ -297,7 +415,7 @@ export default function GeneratePage() {
                         ? "bg-gradient-to-br from-primary to-primary-light text-white shadow-md shadow-primary/25"
                         : "bg-secondary text-text-muted"
                     }
-                    ${isCurrent ? "ring-4 ring-primary/20 scale-110" : ""}
+                    ${isCurrent ? "ring-4 ring-primary/20 scale-110 animate-pulse-ring" : ""}
                   `}
                 >
                   {isPast ? (
@@ -305,7 +423,7 @@ export default function GeneratePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
                   ) : (
-                    s.num
+                    <span className={isCurrent ? "animate-fade-in" : ""}>{s.num}</span>
                   )}
                 </div>
                 <span
@@ -314,6 +432,18 @@ export default function GeneratePage() {
                   }`}
                 >
                   {s.label}
+                </span>
+                {/* 步骤预览缩略图 — 未到达的步骤淡出显示，已完成的保持可见 */}
+                <span
+                  className={`leading-none transition-all duration-300 ${
+                    !isActive
+                      ? "opacity-35 text-[8px]"
+                      : isPast
+                        ? "opacity-60 text-[8px]"
+                        : "opacity-0 h-0 overflow-hidden"
+                  }`}
+                >
+                  {s.hint}
                 </span>
               </div>
 
@@ -335,6 +465,23 @@ export default function GeneratePage() {
           );
         })}
       </div>
+
+      {/* 每日限制已用完 */}
+      {showLimitReached && (
+        <div className="bg-card-bg rounded-2xl border border-border p-6 text-center animate-scale-up mb-4">
+          <div className="text-4xl mb-3">⏰</div>
+          <h3 className="text-base font-bold text-text-primary mb-1">今日免费次数已用完</h3>
+          <p className="text-xs text-text-muted mb-4">
+            每天可免费生成 3 套穿搭方案，明天再来吧
+          </p>
+          <button
+            onClick={() => setShowLimitReached(false)}
+            className="block mx-auto mt-3 text-xs text-text-muted hover:text-text-primary transition-colors"
+          >
+            关闭
+          </button>
+        </div>
+      )}
 
       {/* 错误提示 */}
       {error && (
@@ -668,10 +815,10 @@ export default function GeneratePage() {
                         <div className="absolute inset-0 flex items-center justify-center text-xl">🎨</div>
                       </div>
                       <p className="text-sm text-text-primary font-medium mt-3">AI 正在生成穿搭照片...</p>
-                      <p className="text-[11px] text-text-muted mt-1">大约需要 10-15 秒</p>
+                      <p className="text-[12px] text-text-secondary mt-1">大约需要 10-15 秒</p>
                     </div>
                   ) : showImagePayment ? (
-                    /* 支付 / 激活 — 展示个人微信收款码 + 激活码输入 */
+                    /* 支付流程：微信支付 Native 二维码 + 激活码备用 */
                     <div className="bg-card-bg rounded-2xl border border-border p-4 animate-fade-in">
                       <div className="flex items-center gap-2 mb-4">
                         <span className="text-lg">📸</span>
@@ -679,73 +826,206 @@ export default function GeneratePage() {
                         <span className="text-xs bg-gradient-to-r from-primary to-primary-light text-white px-2 py-0.5 rounded-full font-medium">¥0.99</span>
                       </div>
 
-                      {/* 个人微信收款码 */}
-                      <div className="flex justify-center mb-3">
-                        <img
-                          src="/wechat-qr.png"
-                          alt="微信收款码"
-                          className="w-48 h-48 object-contain rounded-xl border border-border"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = "none";
-                            const fallback = target.nextElementSibling as HTMLElement | null;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                        <div className="hidden w-48 h-48 rounded-xl border border-dashed border-border bg-secondary/50 flex-col items-center justify-center text-center p-4">
-                          <span className="text-2xl mb-1">📱</span>
-                          <p className="text-xs text-text-muted">请替换为你的微信收款码</p>
-                          <p className="text-[10px] text-text-muted/60 mt-1">保存为 public/wechat-qr.png</p>
-                        </div>
-                      </div>
-                      <p className="text-sm text-text-primary font-medium text-center mb-1">
-                        微信扫码支付 ¥0.99
-                      </p>
-                      <p className="text-xs text-text-muted text-center mb-4">
-                        支付后输入激活码 <span className="font-bold text-primary">1314</span> 即可生成
-                      </p>
+                      {paymentCodeUrl ? (
+                        /* 已创建微信支付订单：展示二维码 */
+                        <div className="space-y-4">
+                          <div className="flex justify-center">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(paymentCodeUrl)}`}
+                              alt="微信支付二维码"
+                              className="w-56 h-56 object-contain rounded-xl border border-border bg-white"
+                            />
+                          </div>
+                          <div className="text-center space-y-1">
+                            <p className="text-sm font-semibold text-text-primary">
+                              微信扫码支付 ¥0.99
+                            </p>
+                            <p className="text-xs text-text-muted">
+                              请使用微信扫描二维码完成支付
+                            </p>
+                          </div>
 
-                      {/* 激活码输入 */}
-                      <div className="space-y-2">
-                        <div className="flex gap-2">
-                          <input
-                            value={imageGenCode}
-                            onChange={(e) => {
-                              setImageGenCode(e.target.value);
-                              if (imageGenError) setImageGenError("");
-                            }}
-                            placeholder="输入激活码 1314"
-                            maxLength={32}
-                            disabled={isImageActivating}
-                            className="flex-1 rounded-xl border border-border bg-white p-2.5 text-sm
-                                       text-text-primary placeholder:text-text-muted/60 outline-none text-center
-                                       focus:border-primary/40 focus:ring-2 focus:ring-primary/10
-                                       disabled:opacity-50 transition-all"
-                          />
+                          {isPollingPayment && (
+                            <div className="flex items-center justify-center gap-2 py-2 text-sm text-text-muted">
+                              <span className="relative w-4 h-4">
+                                <span className="absolute inset-0 rounded-full border-2 border-secondary" />
+                                <span className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                              </span>
+                              等待支付中...
+                            </div>
+                          )}
+
+                          {/* 激活码备用入口 */}
+                          <details className="group">
+                            <summary className="text-[10px] text-text-muted/70 hover:text-text-muted cursor-pointer list-none text-center transition-colors">
+                              支付遇到问题？使用激活码
+                            </summary>
+                            <div className="mt-3 flex gap-2">
+                              <input
+                                value={imageGenCode}
+                                onChange={(e) => {
+                                  setImageGenCode(e.target.value);
+                                  if (imageGenError) setImageGenError("");
+                                }}
+                                placeholder="输入激活码"
+                                maxLength={32}
+                                disabled={isImageActivating}
+                                className="flex-1 rounded-xl border border-border bg-white p-2.5 text-sm
+                                           text-text-primary placeholder:text-text-muted/60 outline-none text-center
+                                           focus:border-primary/40 focus:ring-2 focus:ring-primary/10
+                                           disabled:opacity-50 transition-all"
+                              />
+                              <button
+                                onClick={handleActivateAndGenerateImage}
+                                disabled={isImageActivating || !imageGenCode.trim()}
+                                className="px-5 py-2.5 bg-gradient-to-r from-primary to-primary-light text-white
+                                           rounded-xl text-sm font-semibold disabled:opacity-40
+                                           hover:opacity-90 transition-all active:scale-[0.98]"
+                              >
+                                {isImageActivating ? "验证中..." : "验证并生成"}
+                              </button>
+                            </div>
+                          </details>
+
+                          {imageGenError && (
+                            <p className="text-xs text-red-400 text-center animate-fade-in">{imageGenError}</p>
+                          )}
+
                           <button
-                            onClick={handleActivateAndGenerateImage}
-                            disabled={isImageActivating || !imageGenCode.trim()}
-                            className="px-5 py-2.5 bg-gradient-to-r from-primary to-primary-light text-white
-                                       rounded-xl text-sm font-semibold disabled:opacity-40
-                                       hover:opacity-90 transition-all active:scale-[0.98]"
+                            onClick={() => {
+                              setShowImagePayment(false);
+                              setPaymentCodeUrl("");
+                              if (paymentIntervalRef.current) {
+                                clearInterval(paymentIntervalRef.current);
+                                paymentIntervalRef.current = null;
+                              }
+                              setIsPollingPayment(false);
+                            }}
+                            className="w-full py-2 border border-border rounded-xl text-xs text-text-muted
+                                       hover:text-text-primary transition-colors"
                           >
-                            {isImageActivating ? "验证中..." : "验证并生成"}
+                            取消
                           </button>
                         </div>
+                      ) : (
+                        /* 未创建订单：选项 — 微信支付 或 传统收款码+激活码 */
+                        <div className="space-y-4">
+                          {/* 微信支付按钮 */}
+                          <button
+                            onClick={handleCreateWeChatPayment}
+                            disabled={isCreatingPayment}
+                            className="w-full py-3.5 bg-gradient-to-r from-[#07C160] to-[#06AD56] text-white
+                                       rounded-xl text-sm font-semibold disabled:opacity-40
+                                       hover:opacity-90 transition-all active:scale-[0.98]
+                                       flex items-center justify-center gap-2 shadow-sm"
+                          >
+                            {isCreatingPayment ? (
+                              <>
+                                <span className="relative w-4 h-4">
+                                  <span className="absolute inset-0 rounded-full border-2 border-white/30" />
+                                  <span className="absolute inset-0 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                                </span>
+                                创建订单中...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M8.5 13.5l2.5-4 2.5 4H11v3h-1v-3H8.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                                </svg>
+                                微信支付 ¥0.99
+                              </>
+                            )}
+                          </button>
 
-                        {imageGenError && (
-                          <p className="text-xs text-red-400 text-center animate-fade-in">{imageGenError}</p>
-                        )}
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                              <div className="w-full border-t border-border" />
+                            </div>
+                            <div className="relative flex justify-center text-[10px]">
+                              <span className="bg-card-bg px-2 text-text-muted">或</span>
+                            </div>
+                          </div>
 
-                        <button
-                          onClick={() => setShowImagePayment(false)}
-                          className="w-full py-2 border border-border rounded-xl text-xs text-text-muted
-                                     hover:text-text-primary transition-colors"
-                        >
-                          取消
-                        </button>
-                      </div>
+                          {/* 传统收款码 + 激活码 */}
+                          <details className="group">
+                            <summary className="text-xs text-text-muted hover:text-text-primary cursor-pointer list-none text-center transition-colors">
+                              使用已有收款码 + 激活码
+                            </summary>
+                            <div className="mt-3 space-y-3">
+                              <div className="flex justify-center">
+                                <img
+                                  src="/wechat-qr.png"
+                                  alt="微信收款码"
+                                  className="w-40 h-40 object-contain rounded-xl border border-border"
+                                />
+                              </div>
+                              <p className="text-xs text-text-muted text-center mb-2">
+                                支付后输入激活码
+                              </p>
+                              <div className="flex gap-2">
+                                <input
+                                  value={imageGenCode}
+                                  onChange={(e) => {
+                                    setImageGenCode(e.target.value);
+                                    if (imageGenError) setImageGenError("");
+                                  }}
+                                  placeholder="输入激活码"
+                                  maxLength={32}
+                                  disabled={isImageActivating}
+                                  className="flex-1 rounded-xl border border-border bg-white p-2.5 text-sm
+                                             text-text-primary placeholder:text-text-muted/60 outline-none text-center
+                                             focus:border-primary/40 focus:ring-2 focus:ring-primary/10
+                                             disabled:opacity-50 transition-all"
+                                />
+                                <button
+                                  onClick={handleActivateAndGenerateImage}
+                                  disabled={isImageActivating || !imageGenCode.trim()}
+                                  className="px-5 py-2.5 bg-gradient-to-r from-primary to-primary-light text-white
+                                             rounded-xl text-sm font-semibold disabled:opacity-40
+                                             hover:opacity-90 transition-all active:scale-[0.98]"
+                                >
+                                  {isImageActivating ? "验证中..." : "验证并生成"}
+                                </button>
+                              </div>
+                            </div>
+                          </details>
+
+                          <button
+                            onClick={() => setShowImagePayment(false)}
+                            className="w-full py-2 border border-border rounded-xl text-xs text-text-muted
+                                       hover:text-text-primary transition-colors"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      )}
                     </div>
+                  ) : isPaid ? (
+                    /* 已支付：直接生成 */
+                    <button
+                      onClick={doGenerateImage}
+                      disabled={isGeneratingImage}
+                      className="w-full py-3 border-2 border-dashed border-primary/30 rounded-xl
+                                 text-sm font-medium text-primary hover:border-primary/60
+                                 hover:bg-primary/5 transition-all active:scale-[0.98]
+                                 flex items-center justify-center gap-2"
+                    >
+                      {isGeneratingImage ? (
+                        <>
+                          <span className="relative w-4 h-4">
+                            <span className="absolute inset-0 rounded-full border-2 border-primary/30" />
+                            <span className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                          </span>
+                          生成中...
+                        </>
+                      ) : (
+                        <>
+                          <span>📸</span>
+                          生成穿搭照片
+                          <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded">已支付</span>
+                        </>
+                      )}
+                    </button>
                   ) : isActivated ? (
                     /* 已激活：直接生成 */
                     <button
@@ -834,6 +1114,6 @@ export default function GeneratePage() {
       </div>
 
       <FeedbackForm />
-    </div>
+    </main>
   );
 }

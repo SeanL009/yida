@@ -1,13 +1,12 @@
 /**
  * Pro 会员工具函数
- * 用于激活码验证和 Pro 状态管理
+ * 用于 Pro 状态管理
  */
 
-export const ACTIVATION_CODE = "1314";
 export const PRO_DURATION_DAYS = 30;
 export const STORAGE_KEY = "yida_pro";
 
-interface ProStatus {
+export interface ProStatus {
   isPro: boolean;
   expiresAt: string | null;
   daysLeft: number;

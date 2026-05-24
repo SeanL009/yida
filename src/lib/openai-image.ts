@@ -129,6 +129,10 @@ export async function generateOutfitImage(
 
   if (!submitResp.ok) {
     const err = await submitResp.json().catch(() => ({}));
+    // 通义万相未开通权限时的友好提示
+    if (err.code === "InvalidParameter" || err.code === "Forbidden") {
+      throw new Error("通义万相服务未开通，请前往 https://bailian.console.aliyun.com 开通通义万相服务后重试");
+    }
     throw new Error(err.message || `提交失败: ${submitResp.status}`);
   }
 
