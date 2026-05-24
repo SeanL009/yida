@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import FeedbackForm from "@/components/FeedbackForm";
 import ShowcaseSection from "@/components/ShowcaseSection";
 import CountUp from "@/components/CountUp";
@@ -147,7 +148,7 @@ export default function Home() {
             <p className="text-text-muted text-xs">无需注册 · 免费使用</p>
           </div>
 
-          {/* Before/After 对比卡片 — 直观展示效果 */}
+          {/* Before/After 对比卡片 — 真实案例缩短版 */}
           <div className="animate-scale-up delay-[600ms]">
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-border/60 p-3 text-left">
               <div className="flex items-center justify-between mb-2.5 px-0.5">
@@ -155,12 +156,18 @@ export default function Home() {
                 <span className="text-[8px] bg-primary/10 text-primary-dark px-2 py-0.5 rounded-full">AI 搭配</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {/* Before */}
+                {/* Before — 真实照片 + 灰度滤镜 */}
                 <div className="rounded-xl overflow-hidden bg-gradient-to-b from-secondary to-secondary/30 text-center relative">
                   <div className="aspect-[3/4] relative">
-                    <div className="absolute inset-0 flex items-center justify-center text-4xl opacity-30 grayscale">
-                      👩
-                    </div>
+                    <Image
+                      src="/images/showcase/1.webp"
+                      alt="搭配前"
+                      fill
+                      sizes="(max-width: 640px) 50vw, 140px"
+                      className="object-cover grayscale"
+                      priority
+                      unoptimized
+                    />
                     <div className="absolute top-1.5 left-1.5 bg-black/40 text-white text-[7px] px-1.5 py-0.5 rounded backdrop-blur-sm">
                       搭配前
                     </div>
@@ -170,12 +177,18 @@ export default function Home() {
                     <p className="text-[8px] text-text-muted">梨形身材 · 圆脸</p>
                   </div>
                 </div>
-                {/* After */}
+                {/* After — 真实照片 + AI 标签 */}
                 <div className="rounded-xl overflow-hidden bg-gradient-to-b from-primary/15 via-primary-light/10 to-primary/5 text-center relative ring-1 ring-primary/20">
                   <div className="aspect-[3/4] relative">
-                    <div className="absolute inset-0 flex items-center justify-center text-4xl">
-                      👩‍💼
-                    </div>
+                    <Image
+                      src="/images/showcase/2.webp"
+                      alt="AI搭配后"
+                      fill
+                      sizes="(max-width: 640px) 50vw, 140px"
+                      className="object-cover"
+                      priority
+                      unoptimized
+                    />
                     <div className="absolute top-1.5 left-1.5 bg-gradient-to-r from-primary to-primary-light text-white text-[7px] px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-sm backdrop-blur-sm">
                       <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
